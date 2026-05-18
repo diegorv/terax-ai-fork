@@ -9,6 +9,7 @@ import {
   acquireSlot,
   applyFontFamily,
   applyFontSize,
+  applyFontWeight,
   applyTheme as applyPoolTheme,
   applyScrollback,
   applyWebglPreference,
@@ -330,6 +331,11 @@ export function useTerminalSession({
   useEffect(() => {
     applyFontFamily(resolveTerminalFontFamily(fontFamilyPref));
   }, [fontFamilyPref]);
+
+  const fontWeightPref = usePreferencesStore((p) => p.terminalFontWeight);
+  useEffect(() => {
+    applyFontWeight(fontWeightPref);
+  }, [fontWeightPref]);
 
   const scrollback = usePreferencesStore((p) => p.terminalScrollback);
   useEffect(() => {

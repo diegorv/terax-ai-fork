@@ -33,6 +33,7 @@ import {
   EDITOR_THEMES,
   TERMINAL_FONT_FAMILY_DEFAULT,
   TERMINAL_FONT_SIZES,
+  TERMINAL_FONT_WEIGHTS,
   TERMINAL_SCROLLBACK_PRESETS,
   setAutostart,
   setEditorTheme,
@@ -40,6 +41,7 @@ import {
   setShowHidden,
   setTerminalFontFamily,
   setTerminalFontSize,
+  setTerminalFontWeight,
   setTerminalScrollback,
   setTerminalWebglEnabled,
   setVimMode,
@@ -81,6 +83,7 @@ export function GeneralSection() {
   );
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
+  const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
 
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
@@ -146,6 +149,9 @@ export function GeneralSection() {
 
   const onPickTerminalFontSize = (size: number) => void setTerminalFontSize(size);
 
+  const onPickFontWeight = (weight: number) =>
+    void setTerminalFontWeight(weight);
+
   const onPickFontFamily = (family: string) => {
     void setTerminalFontFamily(family);
     setFontPickerOpen(false);
@@ -156,6 +162,10 @@ export function GeneralSection() {
 
   const fontFamilyLabel =
     terminalFontFamily.trim() || `Auto (${TERMINAL_FONT_FAMILY_DEFAULT})`;
+
+  const fontWeightLabel =
+    TERMINAL_FONT_WEIGHTS.find((w) => w.value === terminalFontWeight)?.label ??
+    `${terminalFontWeight}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -374,6 +384,45 @@ export function GeneralSection() {
                   )}
                 >
                   {size} px
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SettingRow>
+        <SettingRow
+          title="Font weight"
+          description="Pick a heavier weight if glyphs look too thin compared to your usual terminal."
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 w-[180px] justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span className="truncate">{fontWeightLabel}</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[180px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
+              {TERMINAL_FONT_WEIGHTS.map((w) => (
+                <DropdownMenuItem
+                  key={w.value}
+                  onSelect={() => onPickFontWeight(w.value)}
+                  className={cn(
+                    "rounded-none px-3 py-1.5 text-[12px]",
+                    w.value === terminalFontWeight && "bg-accent/50",
+                  )}
+                  style={{ fontWeight: w.value }}
+                >
+                  {w.label}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

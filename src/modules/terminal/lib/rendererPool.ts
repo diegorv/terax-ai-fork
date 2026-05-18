@@ -76,9 +76,15 @@ function getRecycler(): HTMLDivElement {
 
 function termOptions() {
   const prefs = usePreferencesStore.getState();
+  const weight = prefs.terminalFontWeight;
+  // xterm clamps fontWeightBold >= fontWeight; bump by one step (or stay at
+  // 700) so bold cells remain visibly heavier than the base weight.
+  const boldWeight = Math.min(900, Math.max(weight + 200, 700));
   return {
     fontFamily: resolveTerminalFontFamily(prefs.terminalFontFamily),
     fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
+    fontWeight: weight,
+    fontWeightBold: boldWeight,
     theme: buildTerminalTheme(),
     cursorBlink: false,
     cursorStyle: "bar" as const,
@@ -543,6 +549,16 @@ export function applyFontFamily(family: string): void {
       const bridge = adapter?.resolveLeaf(slot.currentLeafId);
       bridge?.resizePty(slot.term.cols, slot.term.rows);
     }
+  }
+}
+
+export function applyFontWeight(weight: number): void {
+  const boldWeight = Math.min(900, Math.max(weight + 200, 700));
+  for (const slot of slots) {
+    if (slot.term.options.fontWeight === weight) continue;
+    slot.term.options.fontWeight = weight;
+    slot.term.options.fontWeightBold = boldWeight;
+    slot.fitAddon.fit();
   }
 }
 
