@@ -110,6 +110,24 @@ pnpm exec tsc --noEmit          # frontend type-check
 cd src-tauri && cargo clippy    # Rust lint
 ```
 
+## Syncing with upstream
+
+This fork tracks [`crynta/terax-ai`](https://github.com/crynta/terax-ai) via a dedicated mirror branch so my changes on `main` can be kept up to date with the original project.
+
+- **`main`** — my fork, with personal changes on top of upstream.
+- **`upstream-main`** — a pristine mirror of `crynta/terax-ai@main`. Never receives local commits; only fast-forwards from upstream.
+
+To refresh the mirror and then bring upstream changes into `main`:
+
+```bash
+./scripts/update-upstream.sh          # fetch upstream, fast-forward upstream-main, push to origin
+git checkout main
+git merge upstream-main               # or: git rebase upstream-main
+git push origin main
+```
+
+The script adds the `upstream` remote on first run if it's missing, and refuses to sync if `upstream-main` has diverged from upstream (so the mirror cannot silently drift). Pass `--tags` to also push upstream tags to the fork.
+
 ## Tech stack
 
 Tauri 2 · Rust · `portable-pty` · React 19 · TypeScript · xterm.js · CodeMirror 6 · Vercel AI SDK v6 · Tailwind v4 · shadcn/ui · Zustand
