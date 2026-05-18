@@ -61,6 +61,9 @@ export type Preferences = {
   terminalFontSize: number;
   terminalFontWeight: number;
   terminalScrollback: number;
+  editorFontFamily: string;
+  editorFontSize: number;
+  editorFontWeight: number;
   lastWslDistro: string | null;
   zoomLevel: number;
   shortcuts: Record<ShortcutId, KeyBinding[]>;
@@ -89,6 +92,9 @@ const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
+const KEY_EDITOR_FONT_FAMILY = "editorFontFamily";
+const KEY_EDITOR_FONT_SIZE = "editorFontSize";
+const KEY_EDITOR_FONT_WEIGHT = "editorFontWeight";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
 const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
@@ -108,12 +114,21 @@ export const TERMINAL_FONT_WEIGHTS: {
   { value: 600, label: "Semibold (600)" },
   { value: 700, label: "Bold (700)" },
 ];
+
 export const TERMINAL_FONT_SIZE_MIN = 8;
 export const TERMINAL_FONT_SIZE_MAX = 32;
 
 export const TERMINAL_FONT_SIZES = [
   10, 12, 13, 14, 15, 16, 18, 20, 22, 24,
 ] as const;
+
+export const EDITOR_FONT_SIZE_DEFAULT = 14;
+export const EDITOR_FONT_SIZE_MIN = 8;
+export const EDITOR_FONT_SIZE_MAX = 32;
+export const EDITOR_FONT_FAMILY_DEFAULT = TERMINAL_FONT_FAMILY_DEFAULT;
+export const EDITOR_FONT_WEIGHT_DEFAULT = 500;
+export const EDITOR_FONT_SIZES = TERMINAL_FONT_SIZES;
+export const EDITOR_FONT_WEIGHTS = TERMINAL_FONT_WEIGHTS;
 
 export const TERMINAL_SCROLLBACK_DEFAULT = 2000;
 export const TERMINAL_SCROLLBACK_MIN = 200;
@@ -144,6 +159,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalFontFamily: TERMINAL_FONT_FAMILY_DEFAULT,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalFontWeight: TERMINAL_FONT_WEIGHT_DEFAULT,
+  editorFontFamily: EDITOR_FONT_FAMILY_DEFAULT,
+  editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
+  editorFontWeight: EDITOR_FONT_WEIGHT_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
   lastWslDistro: null,
   zoomLevel: 1.0,
@@ -224,6 +242,16 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalFontWeight: clampFontWeight(
       get<number>(KEY_TERMINAL_FONT_WEIGHT) ??
         DEFAULT_PREFERENCES.terminalFontWeight,
+    ),
+    editorFontFamily:
+      get<string>(KEY_EDITOR_FONT_FAMILY) ??
+      DEFAULT_PREFERENCES.editorFontFamily,
+    editorFontSize:
+      get<number>(KEY_EDITOR_FONT_SIZE) ??
+      DEFAULT_PREFERENCES.editorFontSize,
+    editorFontWeight: clampFontWeight(
+      get<number>(KEY_EDITOR_FONT_WEIGHT) ??
+        DEFAULT_PREFERENCES.editorFontWeight,
     ),
     terminalScrollback: clampScrollback(
       get<number>(KEY_TERMINAL_SCROLLBACK) ??
@@ -329,6 +357,24 @@ export async function setTerminalFontWeight(value: number): Promise<void> {
   await writePref(KEY_TERMINAL_FONT_WEIGHT, clampFontWeight(value));
 }
 
+export async function setEditorFontFamily(value: string): Promise<void> {
+  await writePref(KEY_EDITOR_FONT_FAMILY, value.trim());
+}
+
+export async function setEditorFontSize(value: number): Promise<void> {
+  const clamped = Number.isFinite(value)
+    ? Math.min(
+        EDITOR_FONT_SIZE_MAX,
+        Math.max(EDITOR_FONT_SIZE_MIN, Math.round(value)),
+      )
+    : EDITOR_FONT_SIZE_DEFAULT;
+  await writePref(KEY_EDITOR_FONT_SIZE, clamped);
+}
+
+export async function setEditorFontWeight(value: number): Promise<void> {
+  await writePref(KEY_EDITOR_FONT_WEIGHT, clampFontWeight(value));
+}
+
 export async function setTerminalFontSize(value: number): Promise<void> {
   const clamped = Number.isFinite(value)
     ? Math.min(
@@ -399,6 +445,9 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
     [KEY_TERMINAL_FONT_SIZE]: "terminalFontSize",
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
+    [KEY_EDITOR_FONT_FAMILY]: "editorFontFamily",
+    [KEY_EDITOR_FONT_SIZE]: "editorFontSize",
+    [KEY_EDITOR_FONT_WEIGHT]: "editorFontWeight",
     [KEY_TERMINAL_SCROLLBACK]: "terminalScrollback",
     [KEY_LAST_WSL_DISTRO]: "lastWslDistro",
     [KEY_ZOOM_LEVEL]: "zoomLevel",

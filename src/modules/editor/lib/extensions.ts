@@ -1,4 +1,5 @@
-import { detectMonoFontFamily } from "@/lib/fonts";
+import { resolveTerminalFontFamily } from "@/lib/fonts";
+import { usePreferencesStore } from "@/modules/settings/preferences";
 import { indentUnit } from "@codemirror/language";
 import { lintGutter } from "@codemirror/lint";
 import { search } from "@codemirror/search";
@@ -10,6 +11,34 @@ export const languageCompartment = new Compartment();
 export const readOnlyCompartment = new Compartment();
 export const wrapCompartment = new Compartment();
 export const vimCompartment = new Compartment();
+export const editorThemeCompartment = new Compartment();
+
+export type EditorThemeOptions = {
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+};
+
+export function currentEditorThemeOptions(): EditorThemeOptions {
+  const p = usePreferencesStore.getState();
+  return {
+    fontFamily: resolveTerminalFontFamily(p.editorFontFamily),
+    fontSize: p.editorFontSize,
+    fontWeight: p.editorFontWeight,
+  };
+}
+
+export function buildEditorTheme(opts: EditorThemeOptions): Extension {
+  return EditorView.theme({
+    ".cm-scroller": {
+      fontFamily: opts.fontFamily,
+      fontSize: `${opts.fontSize}px`,
+      fontWeight: String(opts.fontWeight),
+      lineHeight: "1.55",
+      backgroundColor: "transparent !important",
+    },
+  });
+}
 
 // Only what basicSetup doesn't already cover, to avoid duplicate extensions.
 // basicSetup gives us line numbers, fold gutter, history, indentOnInput,
@@ -21,18 +50,13 @@ export function buildSharedExtensions(): Extension[] {
     EditorState.tabSize.of(2),
     search({ top: true }),
     lintGutter(),
+    editorThemeCompartment.of(buildEditorTheme(currentEditorThemeOptions())),
     EditorView.theme({
       "&, &.cm-editor, &.cm-editor.cm-focused": {
         backgroundColor: "transparent !important",
         color: "var(--foreground)",
         outline: "none",
         padding: "8px",
-      },
-      ".cm-scroller": {
-        fontFamily: detectMonoFontFamily(),
-        fontSize: "13px",
-        lineHeight: "1.55",
-        backgroundColor: "transparent !important",
       },
       ".cm-content": {
         caretColor: "var(--foreground)",

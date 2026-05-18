@@ -9,7 +9,13 @@ import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef } from "react";
-import { buildSharedExtensions, languageCompartment } from "./lib/extensions";
+import {
+  buildEditorTheme,
+  buildSharedExtensions,
+  editorThemeCompartment,
+  languageCompartment,
+} from "./lib/extensions";
+import { resolveTerminalFontFamily } from "@/lib/fonts";
 import { resolveLanguage, resolveLanguageSync } from "./lib/languageResolver";
 import { EDITOR_THEME_EXT } from "./lib/themes";
 
@@ -129,6 +135,23 @@ export function AiDiffPane({
       cancelled = true;
     };
   }, [path, initialLang]);
+
+  const editorFontFamily = usePreferencesStore((p) => p.editorFontFamily);
+  const editorFontSize = usePreferencesStore((p) => p.editorFontSize);
+  const editorFontWeight = usePreferencesStore((p) => p.editorFontWeight);
+  useEffect(() => {
+    const view = cmRef.current?.view;
+    if (!view) return;
+    view.dispatch({
+      effects: editorThemeCompartment.reconfigure(
+        buildEditorTheme({
+          fontFamily: resolveTerminalFontFamily(editorFontFamily),
+          fontSize: editorFontSize,
+          fontWeight: editorFontWeight,
+        }),
+      ),
+    });
+  }, [editorFontFamily, editorFontSize, editorFontWeight]);
 
   const stats = useMemo(
     () => computeLineStats(originalContent, proposedContent),
