@@ -18,9 +18,11 @@ import {
   type ProviderId,
 } from "../config";
 import { buildTools, type ToolContext } from "../tools/tools";
+import { runClaudeCodeStream } from "./claudeCode";
 import { compactModelMessagesDetailed } from "./compact";
 import type { ProviderKeys } from "./keyring";
 import { createProxyFetch } from "./proxyFetch";
+import { buildClaudeCodeUIStream } from "./claudeCodeStream";
 
 const localProxyFetch = createProxyFetch({ allowPrivateNetwork: true });
 
@@ -165,6 +167,13 @@ export async function buildLanguageModel(
       })(resolvedModelId);
       break;
     }
+    case "claude-code": {
+      // Claude Code is dispatched via a custom Tauri sidecar instead of an AI
+      // SDK LanguageModel — runAgentStream branches before reaching here.
+      throw new Error(
+        "claude-code provider is routed through runClaudeCodeStream, not buildLanguageModel.",
+      );
+    }
     default: {
       const _exhaustive: never = provider;
       throw new Error(`Unsupported provider: ${_exhaustive as ProviderId}`);
@@ -289,6 +298,12 @@ export type RunAgentOptions = {
 
 export async function runAgentStream(opts: RunAgentOptions) {
   const modelId = opts.modelId ?? DEFAULT_MODEL_ID;
+  const provider = getModel(modelId).provider;
+
+  if (provider === "claude-code") {
+    return runClaudeCodeAgent(modelId, opts);
+  }
+
   const model = await buildConfiguredLanguageModel(
     modelId,
     opts.keys,
@@ -297,7 +312,6 @@ export async function runAgentStream(opts: RunAgentOptions) {
     opts.openaiCompatibleBaseURL,
     opts.openaiCompatibleModelId,
   );
-  const provider = getModel(modelId).provider;
 
   const stableSystem = buildStableSystem(
     modelId,
@@ -372,3 +386,100 @@ export async function runAgentStream(opts: RunAgentOptions) {
 }
 
 export { EMPTY_USAGE };
+
+async function runClaudeCodeAgent(modelId: ModelId, opts: RunAgentOptions) {
+  // Strip the env block already injected by transport.ts so the CLI sees a
+  // clean prompt — claude-code knows its own cwd via the cwd flag below.
+  const lastUser = [...opts.uiMessages].reverse().find((m) => m.role === "user");
+  const parts = (lastUser?.parts ?? []) as ReadonlyArray<{
+    type: string;
+    text?: string;
+  }>;
+  const prompt = parts
+    .filter((p) => p.type === "text" && typeof p.text === "string")
+    .map((p) => p.text ?? "")
+    .join("\n")
+    .replace(/^<env>[\s\S]*?<\/env>\n*/, "")
+    .trim();
+
+  if (!prompt) {
+    throw new Error("claude-code: no text content in latest user message.");
+  }
+
+  const liveCwd = extractCwdFromEnv(parts);
+  // Claude Code CLI already ships its own system prompt + tool surface. Only
+  // *append* Terax-side persona, user custom instructions, and TERAX.md so we
+  // don't duplicate operating principles or contradict the CLI's behavior.
+  const systemPromptAppend = buildClaudeCodeSystemAppend(
+    opts.agentPersona ?? null,
+    opts.customInstructions,
+    opts.projectMemory ?? null,
+  );
+
+  const stream = await runClaudeCodeStream({
+    prompt,
+    modelId: getModel(modelId).id,
+    sessionId: getClaudeCodeSessionId(opts.uiMessages),
+    cwd: liveCwd,
+    systemPromptAppend,
+    permissionMode: opts.planMode ? "plan" : undefined,
+    abortSignal: opts.abortSignal,
+  });
+
+  return buildClaudeCodeUIStream({
+    stream,
+    saveSessionId: (sid) => setClaudeCodeSessionId(opts.uiMessages, sid),
+    onUsage: opts.onUsage,
+    onFinishMeta: opts.onFinishMeta,
+    onStep: opts.onStep,
+  });
+}
+
+function buildClaudeCodeSystemAppend(
+  persona: { name: string; instructions: string } | null,
+  customInstructions: string | undefined,
+  projectMemory: string | null,
+): string | null {
+  const blocks: string[] = [];
+  if (projectMemory && projectMemory.trim()) {
+    blocks.push(`## PROJECT — TERAX.md\n${projectMemory.trim()}`);
+  }
+  if (persona?.instructions.trim()) {
+    blocks.push(`## ACTIVE AGENT — ${persona.name}\n${persona.instructions.trim()}`);
+  }
+  if (customInstructions?.trim()) {
+    blocks.push(
+      `## USER CUSTOM INSTRUCTIONS\n${customInstructions.trim()}`,
+    );
+  }
+  return blocks.length > 0 ? blocks.join("\n\n") : null;
+}
+
+const sessionIdByThread = new Map<string, string>();
+
+function threadKey(messages: UIMessage[]): string | null {
+  return messages[0]?.id ?? null;
+}
+
+function getClaudeCodeSessionId(messages: UIMessage[]): string | null {
+  const key = threadKey(messages);
+  return key ? sessionIdByThread.get(key) ?? null : null;
+}
+
+function setClaudeCodeSessionId(messages: UIMessage[], sid: string): void {
+  const key = threadKey(messages);
+  if (key) sessionIdByThread.set(key, sid);
+}
+
+function extractCwdFromEnv(
+  parts: ReadonlyArray<{ type: string; text?: string }>,
+): string | null {
+  for (const p of parts) {
+    if (p.type !== "text" || typeof p.text !== "string") continue;
+    const m = p.text.match(/active_terminal_cwd:\s*(.+)/);
+    if (m) return m[1].trim();
+    const w = p.text.match(/workspace_root:\s*(.+)/);
+    if (w) return w[1].trim();
+  }
+  return null;
+}

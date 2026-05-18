@@ -1,3 +1,4 @@
+pub mod claude_code;
 pub mod fonts;
 pub mod fs;
 pub mod git;

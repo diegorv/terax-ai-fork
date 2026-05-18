@@ -10,7 +10,8 @@ export type ProviderId =
   | "deepseek"
   | "openrouter"
   | "openai-compatible"
-  | "lmstudio";
+  | "lmstudio"
+  | "claude-code";
 
 export type ProviderInfo = {
   id: ProviderId;
@@ -93,6 +94,13 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     keyringAccount: "",
     keyPrefix: null,
     consoleUrl: "https://lmstudio.ai/docs/basics/server",
+  },
+  {
+    id: "claude-code",
+    label: "Claude Code (Max sub)",
+    keyringAccount: "",
+    keyPrefix: null,
+    consoleUrl: "https://docs.claude.com/en/docs/claude-code/overview",
   },
 ] as const;
 
@@ -502,6 +510,35 @@ export const MODELS = [
     tags: ["tools", "coding"],
   },
 
+  // ── Claude Code CLI (uses local Max subscription, not API billing) ────────
+  {
+    id: "claude-code-opus-4-7",
+    provider: "claude-code",
+    label: "Claude Opus 4.7 (Max sub)",
+    hint: "Subscription",
+    description: "Runs via local `claude` CLI — consumes Max quota.",
+    capabilities: { intelligence: 5, speed: 2, cost: 5 },
+    tags: ["vision", "reasoning", "tools", "coding"],
+  },
+  {
+    id: "claude-code-sonnet-4-6",
+    provider: "claude-code",
+    label: "Claude Sonnet 4.6 (Max sub)",
+    hint: "Subscription",
+    description: "Balanced Claude via local CLI.",
+    capabilities: { intelligence: 4, speed: 4, cost: 5 },
+    tags: ["vision", "tools", "coding"],
+  },
+  {
+    id: "claude-code-haiku-4-5",
+    provider: "claude-code",
+    label: "Claude Haiku 4.5 (Max sub)",
+    hint: "Subscription",
+    description: "Fast Claude via local CLI.",
+    capabilities: { intelligence: 3, speed: 5, cost: 5 },
+    tags: ["vision", "tools"],
+  },
+
   // ── Generic OpenAI-compatible (user-defined endpoint) ─────────────────────
   {
     id: "openai-compatible-custom",
@@ -579,6 +616,9 @@ export const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "z-ai/glm-4.6": 128_000,
   "openai-compatible-custom": 128_000,
   "lmstudio-local": 32_000,
+  "claude-code-opus-4-7": 200_000,
+  "claude-code-sonnet-4-6": 200_000,
+  "claude-code-haiku-4-5": 200_000,
 };
 
 export function getModelContextLimit(modelId: string | undefined): number {
@@ -633,6 +673,7 @@ export function estimateCost(
 export const KEYLESS_PROVIDERS: readonly ProviderId[] = [
   "lmstudio",
   "openai-compatible",
+  "claude-code",
 ] as const;
 
 export function providerNeedsKey(id: ProviderId): boolean {
@@ -663,6 +704,7 @@ export const DEFAULT_AUTOCOMPLETE_MODEL: Partial<Record<ProviderId, string>> = {
   deepseek: "deepseek-v4-flash",
   openrouter: "openai/gpt-5.4-mini",
   "openai-compatible": "",
+  "claude-code": "claude-code-haiku-4-5",
 };
 
 /** Curated list of fast models suitable for inline completion (speed ≥ 4). */

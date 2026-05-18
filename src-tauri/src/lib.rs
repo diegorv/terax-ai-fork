@@ -1,6 +1,6 @@
 mod modules;
 
-use modules::{fonts, fs, git, net, pty, secrets, shell, workspace};
+use modules::{claude_code, fonts, fs, git, net, pty, secrets, shell, workspace};
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_window_state::StateFlags;
 
@@ -84,6 +84,7 @@ pub fn run() {
         .manage(pty::PtyState::default())
         .manage(shell::ShellState::default())
         .manage(secrets::SecretsState::default())
+        .manage(claude_code::ClaudeCodeState::default())
         .manage({
             let registry = workspace::WorkspaceRegistry::default();
             workspace::bootstrap_registry(&registry);
@@ -147,6 +148,10 @@ pub fn run() {
             net::ai_http_request,
             net::ai_http_stream,
             fonts::fonts_list_system,
+            claude_code::claude_code_check,
+            claude_code::claude_code_send,
+            claude_code::claude_code_cancel,
+            claude_code::claude_code_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

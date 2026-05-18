@@ -25,6 +25,7 @@ import {
   SelectionAskAi,
   useChatStore,
 } from "@/modules/ai";
+import { getModel } from "@/modules/ai/config";
 import { AiComposerProvider } from "@/modules/ai/lib/composer";
 import { redactSensitive } from "@/modules/ai/lib/redact";
 import { native } from "@/modules/ai/lib/native";
@@ -378,7 +379,11 @@ export default function App() {
     (lmstudioBaseURL.trim().length > 0 && lmstudioModelId.trim().length > 0) ||
     (openaiCompatibleBaseURL.trim().length > 0 &&
       openaiCompatibleModelId.trim().length > 0);
-  const hasComposer = hasAnyKey(apiKeys) || hasLocalModel;
+  const selectedModelId = useChatStore((s) => s.selectedModelId);
+  const selectedIsClaudeCode =
+    getModel(selectedModelId).provider === "claude-code";
+  const hasComposer =
+    hasAnyKey(apiKeys) || hasLocalModel || selectedIsClaudeCode;
 
   const [keysLoaded, setKeysLoaded] = useState(false);
   useEffect(() => {
