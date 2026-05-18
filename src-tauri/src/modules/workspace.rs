@@ -46,8 +46,21 @@ pub async fn workspace_current_dir(
     registry: tauri::State<'_, WorkspaceRegistry>,
 ) -> Result<String, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-    let canonical = registry.authorize(&cwd).map_err(|e| e.to_string())?;
+    // When launched from Finder/Dock (macOS) or the Start menu (Windows) the
+    // process cwd is the filesystem root, which is useless as a workspace. In
+    // that case prefer the user's home directory.
+    let resolved = if is_filesystem_root(&cwd) {
+        dirs::home_dir().filter(|p| p.is_dir()).unwrap_or(cwd)
+    } else {
+        cwd
+    };
+    let canonical = registry.authorize(&resolved).map_err(|e| e.to_string())?;
     Ok(canonical.to_string_lossy().replace('\\', "/"))
+}
+
+fn is_filesystem_root(path: &Path) -> bool {
+    // `parent()` of "/" or "C:\\" returns None.
+    path.parent().is_none()
 }
 
 
