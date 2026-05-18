@@ -1,10 +1,23 @@
 import { Button } from "@/components/ui/button";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
@@ -18,12 +31,14 @@ import type { ThemePref } from "@/modules/settings/store";
 import {
   EDITOR_THEME_LABELS,
   EDITOR_THEMES,
+  TERMINAL_FONT_FAMILY_DEFAULT,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
   setAutostart,
   setEditorTheme,
   setRestoreWindowState,
   setShowHidden,
+  setTerminalFontFamily,
   setTerminalFontSize,
   setTerminalScrollback,
   setTerminalWebglEnabled,
@@ -38,8 +53,9 @@ import {
   Sun03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { invoke } from "@tauri-apps/api/core";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
 
@@ -63,8 +79,35 @@ export function GeneralSection() {
   const terminalWebglEnabled = usePreferencesStore(
     (s) => s.terminalWebglEnabled,
   );
+  const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
+
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
+  const [fontPickerOpen, setFontPickerOpen] = useState(false);
+  const [fontSearch, setFontSearch] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    invoke<string[]>("fonts_list_system")
+      .then((list) => {
+        if (alive) setSystemFonts(list);
+      })
+      .catch(() => {
+        if (alive) setSystemFonts([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const filteredFonts = useMemo(() => {
+    const q = fontSearch.trim().toLowerCase();
+    const base = q
+      ? systemFonts.filter((f) => f.toLowerCase().includes(q))
+      : systemFonts;
+    return base.slice(0, 200);
+  }, [systemFonts, fontSearch]);
 
   // Reconcile autostart pref with the actual OS state on mount — the user may
   // have toggled it from System Settings.
@@ -103,7 +146,16 @@ export function GeneralSection() {
 
   const onPickTerminalFontSize = (size: number) => void setTerminalFontSize(size);
 
+  const onPickFontFamily = (family: string) => {
+    void setTerminalFontFamily(family);
+    setFontPickerOpen(false);
+    setFontSearch("");
+  };
+
   const onPickScrollback = (lines: number) => void setTerminalScrollback(lines);
+
+  const fontFamilyLabel =
+    terminalFontFamily.trim() || `Auto (${TERMINAL_FONT_FAMILY_DEFAULT})`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -219,6 +271,75 @@ export function GeneralSection() {
             checked={terminalWebglEnabled}
             onCheckedChange={onToggleTerminalWebgl}
           />
+        </SettingRow>
+        <SettingRow
+          title="Font family"
+          description="Pick any monospace font installed on the system."
+        >
+          <Popover open={fontPickerOpen} onOpenChange={setFontPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 w-[220px] justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span className="truncate">{fontFamilyLabel}</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[260px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
+              <Command>
+                <CommandInput
+                  placeholder="Search fonts..."
+                  value={fontSearch}
+                  onValueChange={setFontSearch}
+                />
+                <CommandList className="max-h-64 overflow-y-auto">
+                  <CommandEmpty>
+                    {systemFonts.length === 0
+                      ? "Font enumeration unavailable on this platform."
+                      : "No fonts found."}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="__default__"
+                      onSelect={() =>
+                        onPickFontFamily(TERMINAL_FONT_FAMILY_DEFAULT)
+                      }
+                      className={cn(
+                        "text-[12px]",
+                        terminalFontFamily === TERMINAL_FONT_FAMILY_DEFAULT &&
+                          "bg-accent/50",
+                      )}
+                    >
+                      Default ({TERMINAL_FONT_FAMILY_DEFAULT})
+                    </CommandItem>
+                    {filteredFonts.map((font) => (
+                      <CommandItem
+                        key={font}
+                        value={font}
+                        onSelect={() => onPickFontFamily(font)}
+                        className={cn(
+                          "text-[12px]",
+                          font === terminalFontFamily && "bg-accent/50",
+                        )}
+                        style={{ fontFamily: `"${font}"` }}
+                      >
+                        {font}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </SettingRow>
         <SettingRow
           title="Font size"

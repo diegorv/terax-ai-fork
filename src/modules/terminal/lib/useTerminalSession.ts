@@ -1,4 +1,4 @@
-import { ensureMonoFontsLoaded } from "@/lib/fonts";
+import { ensureMonoFontsLoaded, resolveTerminalFontFamily } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -7,6 +7,7 @@ import { registerCwdHandler, registerPromptTracker } from "./osc-handlers";
 import { openPty, type PtySession } from "./pty-bridge";
 import {
   acquireSlot,
+  applyFontFamily,
   applyFontSize,
   applyTheme as applyPoolTheme,
   applyScrollback,
@@ -324,6 +325,11 @@ export function useTerminalSession({
   useEffect(() => {
     applyFontSize(Math.max(4, Math.round(fontSize * zoomLevel)));
   }, [fontSize, zoomLevel]);
+
+  const fontFamilyPref = usePreferencesStore((p) => p.terminalFontFamily);
+  useEffect(() => {
+    applyFontFamily(resolveTerminalFontFamily(fontFamilyPref));
+  }, [fontFamilyPref]);
 
   const scrollback = usePreferencesStore((p) => p.terminalScrollback);
   useEffect(() => {
