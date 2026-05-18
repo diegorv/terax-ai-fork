@@ -1,16 +1,27 @@
 <div align="center">
-  <img src="public/logo.png" width="144" height="144" alt="Terax" />
-  <h1>Terax</h1>
+  <img src="public/logo.png" width="144" height="144" alt="TeraxFork" />
+  <h1>TeraxFork</h1>
 
-  <p><strong>Open-source lightweight cross-platform AI-native terminal (ADE)</strong></p>
+  <p><strong>Personal fork of <a href="https://github.com/crynta/terax-ai">crynta/terax-ai</a> for experimenting with my own ideas of what an AI-native terminal should be.</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-0.6.4-blue" alt="version" />
+    <img src="https://img.shields.io/badge/status-experimental-orange" alt="status" />
+    <img src="https://img.shields.io/badge/fork-personal--PoC-yellow" alt="fork" />
     <img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="license" />
     <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="platform" />
-
   </p>
 </div>
+
+---
+
+> [!WARNING]
+> **This is a personal fork, not a maintained product.**
+>
+> - :rotating_light: **Not recommended for use yet.** Things will break, change, or disappear without notice.
+> - :hammer_and_wrench: This fork is a **proof of concept** for ideas I want to try out around what I consider the perfect terminal for AI workflows.
+> - :bust_in_silhouette: Built **for personal use**. I do not plan to open pull requests against the upstream project (no bandwidth for upstream review cycles).
+> - :sparkles: I think the original project is **fantastic** and you should use that instead: **https://github.com/crynta/terax-ai**
+> - :speech_balloon: Issues / PRs here are welcome but may sit unattended. No support is provided.
 
 ---
 
