@@ -39,6 +39,7 @@ import {
   type EditorPaneHandle,
 } from "@/modules/editor";
 import { GitHistoryStack } from "@/modules/git-history";
+import { getLaunchDir } from "@/lib/launchDir";
 import { useZoom } from "@/lib/useZoom";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
 import {
@@ -162,7 +163,7 @@ export default function App() {
     closeActivePane,
     closePaneByLeaf,
     resetWorkspace,
-  } = useTabs();
+  } = useTabs(getLaunchDir() ? { cwd: getLaunchDir() } : undefined);
 
   // Mirror `tabs` into a ref so callbacks scheduled with `setTimeout`
   // (e.g. cdInNewTab) read the latest pane state instead of a stale closure.
@@ -336,6 +337,7 @@ export default function App() {
       setActiveEditorHandle(null);
       setWorkspaceEnv(env.kind === "local" ? LOCAL_WORKSPACE : env);
       setHome(nextHome);
+      setLaunchCwd(nextHome);
       if (nextHome) {
         try {
           await native.workspaceAuthorize(nextHome);
@@ -807,7 +809,7 @@ export default function App() {
   }, [cycleSidebarView]);
 
   const openGitGraphFromContext = useCallback(async () => {
-    const known = sourceControl.repo;
+    const known = sourceControl.hasRepo ? sourceControl.repo : null;
     if (known) {
       openCommitHistoryTab({
         repoRoot: known.repoRoot,
@@ -825,6 +827,7 @@ export default function App() {
     }
   }, [
     openCommitHistoryTab,
+    sourceControl.hasRepo,
     sourceControl.repo,
     sourceControl.status?.branch,
     sourceControlContextPath,
