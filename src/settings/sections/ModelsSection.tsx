@@ -21,6 +21,10 @@ import {
   type ProviderId,
   type ProviderInfo,
 } from "@/modules/ai/config";
+import {
+  checkClaudeCode,
+  type ClaudeCodeCheck,
+} from "@/modules/ai/lib/claudeCode";
 import { clearKey, getAllKeys, setKey } from "@/modules/ai/lib/keyring";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
@@ -50,6 +54,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useState } from "react";
+import { ClaudeCodeProviderCard } from "../components/ClaudeCodeProviderCard";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -104,6 +109,10 @@ const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
 export function ModelsSection() {
   const [keys, setKeys] = useState<KeysMap | null>(null);
   const [adding, setAdding] = useState<Set<ProviderId>>(new Set());
+  // Claude Code is detected by spawning the local CLI, not by reading a key —
+  // tracked separately and refreshed on mount + on user demand.
+  const [claudeCodeCheck, setClaudeCodeCheck] =
+    useState<ClaudeCodeCheck | null>(null);
 
   const defaultModel = usePreferencesStore((s) => s.defaultModelId);
   const lmstudioBaseURL = usePreferencesStore((s) => s.lmstudioBaseURL);
@@ -120,6 +129,12 @@ export function ModelsSection() {
 
   useEffect(() => {
     void getAllKeys().then(setKeys);
+    // Probe the claude CLI eagerly so the provider auto-surfaces when
+    // installed — otherwise users would have to "Add provider" first to
+    // even see the detection card.
+    void checkClaudeCode().then(setClaudeCodeCheck).catch(() => {
+      setClaudeCodeCheck({ installed: false, version: null, path: null });
+    });
   }, []);
 
   const onSaveKey = async (provider: ProviderId, value: string) => {
@@ -172,6 +187,7 @@ export function ModelsSection() {
   };
 
   const isConfigured = (id: ProviderId): boolean => {
+    if (id === "claude-code") return claudeCodeCheck?.installed === true;
     if (!isLocalProvider(id)) return !!keys?.[id];
     const cfg = localConfig(id);
     if (!cfg) return false;
@@ -193,7 +209,9 @@ export function ModelsSection() {
   const addableProviders = PROVIDERS.filter((p) => !visibleIds.has(p.id));
 
   const removeProvider = (id: ProviderId) => {
-    if (isLocalProvider(id)) {
+    if (id === "claude-code") {
+      // Nothing to clear — detection is read-only. Just hide the card.
+    } else if (isLocalProvider(id)) {
       const cfg = localConfig(id);
       if (cfg) {
         void cfg.setModelId("");
@@ -247,20 +265,43 @@ export function ModelsSection() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {visibleProviders.map((p) =>
-              isLocalProvider(p.id) ? (
-                <LocalProviderCard
-                  key={p.id}
-                  provider={p}
-                  configured={configuredIds.has(p.id)}
-                  config={localConfig(p.id)!}
-                  meta={LOCAL_META[p.id]!}
-                  compatKey={p.id === "openai-compatible" ? keys[p.id] : undefined}
-                  onSaveKey={(v) => onSaveKey(p.id, v)}
-                  onClearKey={() => onClearKey(p.id)}
-                  onRemove={() => removeProvider(p.id)}
-                />
-              ) : (
+            {visibleProviders.map((p) => {
+              if (p.id === "claude-code") {
+                // Detection drives the card's presence — when the CLI is
+                // present, the user can't "remove" it in a meaningful way,
+                // so hide the X. Only show it when the card was added
+                // manually without detection.
+                const installed = claudeCodeCheck?.installed === true;
+                return (
+                  <ClaudeCodeProviderCard
+                    key={p.id}
+                    provider={p}
+                    check={claudeCodeCheck}
+                    onCheck={setClaudeCodeCheck}
+                    onRemove={
+                      installed ? undefined : () => removeProvider(p.id)
+                    }
+                  />
+                );
+              }
+              if (isLocalProvider(p.id)) {
+                return (
+                  <LocalProviderCard
+                    key={p.id}
+                    provider={p}
+                    configured={configuredIds.has(p.id)}
+                    config={localConfig(p.id)!}
+                    meta={LOCAL_META[p.id]!}
+                    compatKey={
+                      p.id === "openai-compatible" ? keys[p.id] : undefined
+                    }
+                    onSaveKey={(v) => onSaveKey(p.id, v)}
+                    onClearKey={() => onClearKey(p.id)}
+                    onRemove={() => removeProvider(p.id)}
+                  />
+                );
+              }
+              return (
                 <ProviderKeyCard
                   key={p.id}
                   provider={p}
@@ -269,8 +310,8 @@ export function ModelsSection() {
                   onClear={() => onClearKey(p.id)}
                   onRemove={() => removeProvider(p.id)}
                 />
-              ),
-            )}
+              );
+            })}
           </div>
         )}
       </div>
