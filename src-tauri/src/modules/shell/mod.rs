@@ -97,6 +97,7 @@ fn run_blocking(
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    crate::modules::proc::hide_console(&mut cmd);
 
     let child = Arc::new(SharedChild::spawn(&mut cmd).map_err(|e| {
         log::warn!("shell_run_command spawn failed: {e}");
@@ -298,9 +299,8 @@ pub(crate) fn build_oneshot_command(
     }
     #[cfg(unix)]
     {
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-        let mut cmd = Command::new(shell);
-        cmd.arg("-lc").arg(command);
+        let mut cmd = Command::new("/bin/sh");
+        cmd.arg("-c").arg(command);
         Ok(cmd)
     }
     #[cfg(windows)]

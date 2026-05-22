@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -117,11 +117,26 @@ pub async fn workspace_current_dir(
     Ok(canonical.to_string_lossy().replace('\\', "/"))
 }
 
-// Raw `current_dir()` is a launcher artifact under `tauri dev` (cargo runs from
-// `src-tauri/`) and bundled launches (`/` or inside `.app`). All three signal
-// "no real user-chosen cwd", so fall back to $HOME and let the source-control
-// panel + new-tab default stay neutral instead of pinning to the dev repo.
+// Snapshotted once at app startup so the live `current_dir()` drifting later
+// (file dialogs, plugin chdir) can't shift the value seen by IPC or spawn.
+static LAUNCH_CWD: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+pub fn init_launch_cwd() {
+    LAUNCH_CWD.get_or_init(|| {
+        std::env::current_dir()
+            .ok()
+            .filter(|p| is_usable_launch_dir(p))
+    });
+}
+
+pub fn launch_cwd_snapshot() -> Option<PathBuf> {
+    LAUNCH_CWD.get().and_then(|o| o.clone())
+}
+
 fn resolve_launch_dir() -> PathBuf {
+    if let Some(cwd) = launch_cwd_snapshot() {
+        return cwd;
+    }
     if let Some(cwd) = std::env::current_dir().ok().filter(|p| is_usable_launch_dir(p)) {
         return cwd;
     }
@@ -132,6 +147,9 @@ fn is_usable_launch_dir(path: &Path) -> bool {
     if !path.is_dir() || path == Path::new("/") {
         return false;
     }
+    if is_executable_dir(path) {
+        return false;
+    }
     let s = path.to_string_lossy();
     if s.contains(".app/Contents/") {
         return false;
@@ -140,6 +158,19 @@ fn is_usable_launch_dir(path: &Path) -> bool {
         return false;
     }
     true
+}
+
+fn is_executable_dir(path: &Path) -> bool {
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    let Some(exe_dir) = exe.parent() else {
+        return false;
+    };
+    match (std::fs::canonicalize(path), std::fs::canonicalize(exe_dir)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -290,10 +321,10 @@ fn looks_utf16le(bytes: &[u8]) -> bool {
 
 #[cfg(windows)]
 fn run_wsl(args: &[&str]) -> Result<String, String> {
-    let out = std::process::Command::new("wsl.exe")
-        .args(args)
-        .output()
-        .map_err(|e| e.to_string())?;
+    let mut cmd = std::process::Command::new("wsl.exe");
+    cmd.args(args);
+    crate::modules::proc::hide_console(&mut cmd);
+    let out = cmd.output().map_err(|e| e.to_string())?;
     if !out.status.success() {
         let stderr = decode_command_output(&out.stderr);
         return Err(stderr.trim().to_string());
@@ -308,14 +339,10 @@ pub(crate) fn wsl_exec_capture(
     args: &[&str],
 ) -> Result<String, String> {
     validate_wsl_distro_name(distro)?;
-    let out = std::process::Command::new("wsl.exe")
-        .arg("-d")
-        .arg(distro)
-        .arg("--exec")
-        .arg(program)
-        .args(args)
-        .output()
-        .map_err(|e| e.to_string())?;
+    let mut cmd = std::process::Command::new("wsl.exe");
+    cmd.arg("-d").arg(distro).arg("--exec").arg(program).args(args);
+    crate::modules::proc::hide_console(&mut cmd);
+    let out = cmd.output().map_err(|e| e.to_string())?;
     if !out.status.success() {
         let stderr = decode_command_output(&out.stderr);
         return Err(stderr.trim().to_string());

@@ -1,7 +1,8 @@
 {
   "name": "terax",
   "private": true,
-  "version": "0.6.6",
+  "version": "0.7.1",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -60,6 +61,7 @@
     "@uiw/codemirror-theme-aura": "^4.25.9",
     "@uiw/codemirror-theme-copilot": "^4.25.9",
     "@uiw/codemirror-theme-github": "^4.25.9",
+    "@uiw/codemirror-theme-gruvbox-dark": "^4.25.9",
     "@uiw/codemirror-theme-nord": "^4.25.9",
     "@uiw/codemirror-theme-tokyo-night": "^4.25.9",
     "@uiw/codemirror-theme-xcode": "^4.25.9",

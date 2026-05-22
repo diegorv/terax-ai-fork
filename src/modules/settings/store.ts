@@ -2,6 +2,8 @@ import {
   DEFAULT_AUTOCOMPLETE_MODEL,
   DEFAULT_MODEL_ID,
   LMSTUDIO_DEFAULT_BASE_URL,
+  MLX_DEFAULT_BASE_URL,
+  OLLAMA_DEFAULT_BASE_URL,
   OPENAI_COMPATIBLE_DEFAULT_BASE_URL,
   type AutocompleteProviderId,
   type ModelId,
@@ -12,12 +14,17 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 
 export type ThemePref = "system" | "light" | "dark";
 
+export const DEFAULT_THEME_ID = "terax-default";
+
+export type BackgroundKind = "none" | "image";
+
 export const EDITOR_THEMES = [
   "atomone",
   "aura",
   "copilot",
   "github-dark",
   "github-light",
+  "gruvbox-dark",
   "nord",
   "tokyo-night",
   "xcode-dark",
@@ -32,6 +39,7 @@ export const EDITOR_THEME_LABELS: Record<EditorThemeId, string> = {
   copilot: "Copilot",
   "github-dark": "GitHub Dark",
   "github-light": "GitHub Light",
+  "gruvbox-dark": "Gruvbox Dark",
   nord: "Nord",
   "tokyo-night": "Tokyo Night",
   "xcode-dark": "Xcode Dark",
@@ -40,6 +48,11 @@ export const EDITOR_THEME_LABELS: Record<EditorThemeId, string> = {
 
 export type Preferences = {
   theme: ThemePref;
+  themeId: string;
+  backgroundKind: BackgroundKind;
+  backgroundImageId: string | null;
+  backgroundOpacity: number;
+  backgroundBlur: number;
   defaultModelId: ModelId;
   editorTheme: EditorThemeId;
   customInstructions: string;
@@ -50,14 +63,20 @@ export type Preferences = {
   autocompleteModelId: string;
   lmstudioBaseURL: string;
   lmstudioModelId: string;
+  mlxBaseURL: string;
+  mlxModelId: string;
+  ollamaBaseURL: string;
+  ollamaModelId: string;
   openaiCompatibleBaseURL: string;
   openaiCompatibleModelId: string;
+  openaiCompatibleContextLimit: number;
   favoriteModelIds: string[];
   recentModelIds: string[];
   vimMode: boolean;
   showHidden: boolean;
   terminalWebglEnabled: boolean;
   terminalFontFamily: string;
+  terminalLetterSpacing: number;
   terminalFontSize: number;
   terminalFontWeight: number;
   terminalScrollback: number;
@@ -71,6 +90,11 @@ export type Preferences = {
 
 const STORE_PATH = "terax-settings.json";
 const KEY_THEME = "theme";
+const KEY_THEME_ID = "themeId";
+const KEY_BG_KIND = "backgroundKind";
+const KEY_BG_IMAGE_ID = "backgroundImageId";
+const KEY_BG_OPACITY = "backgroundOpacity";
+const KEY_BG_BLUR = "backgroundBlur";
 const KEY_DEFAULT_MODEL = "defaultModelId";
 const KEY_EDITOR_THEME = "editorTheme";
 const KEY_CUSTOM_INSTRUCTIONS = "customInstructions";
@@ -81,8 +105,13 @@ const KEY_AUTOCOMPLETE_PROVIDER = "autocompleteProvider";
 const KEY_AUTOCOMPLETE_MODEL = "autocompleteModelId";
 const KEY_LMSTUDIO_BASE_URL = "lmstudioBaseURL";
 const KEY_LMSTUDIO_MODEL_ID = "lmstudioModelId";
+const KEY_MLX_BASE_URL = "mlxBaseURL";
+const KEY_MLX_MODEL_ID = "mlxModelId";
+const KEY_OLLAMA_BASE_URL = "ollamaBaseURL";
+const KEY_OLLAMA_MODEL_ID = "ollamaModelId";
 const KEY_OPENAI_COMPAT_BASE_URL = "openaiCompatibleBaseURL";
 const KEY_OPENAI_COMPAT_MODEL_ID = "openaiCompatibleModelId";
+const KEY_OPENAI_COMPAT_CONTEXT_LIMIT = "openaiCompatibleContextLimit";
 const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
 const KEY_VIM_MODE = "vimMode";
@@ -90,6 +119,7 @@ const KEY_SHOW_HIDDEN = "showHidden";
 const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
+const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
 const KEY_EDITOR_FONT_FAMILY = "editorFontFamily";
@@ -139,6 +169,11 @@ export const TERMINAL_SCROLLBACK_PRESETS = [
 
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
+  themeId: DEFAULT_THEME_ID,
+  backgroundKind: "none",
+  backgroundImageId: null,
+  backgroundOpacity: 0.5,
+  backgroundBlur: 0,
   defaultModelId: DEFAULT_MODEL_ID,
   editorTheme: "atomone",
   customInstructions: "",
@@ -149,14 +184,20 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autocompleteModelId: DEFAULT_AUTOCOMPLETE_MODEL.cerebras ?? "",
   lmstudioBaseURL: LMSTUDIO_DEFAULT_BASE_URL,
   lmstudioModelId: "",
+  mlxBaseURL: MLX_DEFAULT_BASE_URL,
+  mlxModelId: "",
+  ollamaBaseURL: OLLAMA_DEFAULT_BASE_URL,
+  ollamaModelId: "",
   openaiCompatibleBaseURL: OPENAI_COMPATIBLE_DEFAULT_BASE_URL,
   openaiCompatibleModelId: "",
+  openaiCompatibleContextLimit: 128_000,
   favoriteModelIds: [],
   recentModelIds: [],
   vimMode: false,
   showHidden: false,
   terminalWebglEnabled: true,
   terminalFontFamily: TERMINAL_FONT_FAMILY_DEFAULT,
+  terminalLetterSpacing: 0,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalFontWeight: TERMINAL_FONT_WEIGHT_DEFAULT,
   editorFontFamily: EDITOR_FONT_FAMILY_DEFAULT,
@@ -190,6 +231,18 @@ export async function loadPreferences(): Promise<Preferences> {
   const get = <T>(k: string): T | undefined => map.get(k) as T | undefined;
   return {
     theme: get<ThemePref>(KEY_THEME) ?? DEFAULT_PREFERENCES.theme,
+    themeId: get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
+    backgroundKind:
+      get<BackgroundKind>(KEY_BG_KIND) ?? DEFAULT_PREFERENCES.backgroundKind,
+    backgroundImageId:
+      get<string | null>(KEY_BG_IMAGE_ID) ??
+      DEFAULT_PREFERENCES.backgroundImageId,
+    backgroundOpacity: clampBgOpacity(
+      get<number>(KEY_BG_OPACITY) ?? DEFAULT_PREFERENCES.backgroundOpacity,
+    ),
+    backgroundBlur: clampBlur(
+      get<number>(KEY_BG_BLUR) ?? DEFAULT_PREFERENCES.backgroundBlur,
+    ),
     defaultModelId:
       get<ModelId>(KEY_DEFAULT_MODEL) ?? DEFAULT_PREFERENCES.defaultModelId,
     editorTheme:
@@ -214,12 +267,23 @@ export async function loadPreferences(): Promise<Preferences> {
       get<string>(KEY_LMSTUDIO_BASE_URL) ?? DEFAULT_PREFERENCES.lmstudioBaseURL,
     lmstudioModelId:
       get<string>(KEY_LMSTUDIO_MODEL_ID) ?? DEFAULT_PREFERENCES.lmstudioModelId,
+    mlxBaseURL:
+      get<string>(KEY_MLX_BASE_URL) ?? DEFAULT_PREFERENCES.mlxBaseURL,
+    mlxModelId:
+      get<string>(KEY_MLX_MODEL_ID) ?? DEFAULT_PREFERENCES.mlxModelId,
+    ollamaBaseURL:
+      get<string>(KEY_OLLAMA_BASE_URL) ?? DEFAULT_PREFERENCES.ollamaBaseURL,
+    ollamaModelId:
+      get<string>(KEY_OLLAMA_MODEL_ID) ?? DEFAULT_PREFERENCES.ollamaModelId,
     openaiCompatibleBaseURL:
       get<string>(KEY_OPENAI_COMPAT_BASE_URL) ??
       DEFAULT_PREFERENCES.openaiCompatibleBaseURL,
     openaiCompatibleModelId:
       get<string>(KEY_OPENAI_COMPAT_MODEL_ID) ??
       DEFAULT_PREFERENCES.openaiCompatibleModelId,
+    openaiCompatibleContextLimit:
+      get<number>(KEY_OPENAI_COMPAT_CONTEXT_LIMIT) ??
+      DEFAULT_PREFERENCES.openaiCompatibleContextLimit,
     favoriteModelIds:
       get<string[]>(KEY_FAVORITE_MODELS) ??
       DEFAULT_PREFERENCES.favoriteModelIds,
@@ -236,6 +300,9 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalFontFamily:
       get<string>(KEY_TERMINAL_FONT_FAMILY) ??
       DEFAULT_PREFERENCES.terminalFontFamily,
+    terminalLetterSpacing:
+      get<number>(KEY_TERMINAL_LETTER_SPACING) ??
+      DEFAULT_PREFERENCES.terminalLetterSpacing,
     terminalFontSize:
       get<number>(KEY_TERMINAL_FONT_SIZE) ??
       DEFAULT_PREFERENCES.terminalFontSize,
@@ -270,6 +337,41 @@ export async function loadPreferences(): Promise<Preferences> {
 export async function setTheme(value: ThemePref): Promise<void> {
   await writePref(KEY_THEME, value);
 }
+
+export async function setThemeId(value: string): Promise<void> {
+  await writePref(KEY_THEME_ID, value);
+}
+
+/** Slider stores 0..1. Actual rendered opacity is halved in SurfaceLayer
+ *  so the image never exceeds 50% — keeps UI/terminal readable at any setting. */
+export const BG_OPACITY_RENDER_FACTOR = 0.5;
+
+function clampBgOpacity(v: number): number {
+  if (!Number.isFinite(v)) return 0.7;
+  return Math.min(1, Math.max(0, v));
+}
+
+function clampBlur(v: number): number {
+  if (!Number.isFinite(v)) return 16;
+  return Math.min(64, Math.max(0, Math.round(v)));
+}
+
+export async function setBackgroundKind(value: BackgroundKind): Promise<void> {
+  await writePref(KEY_BG_KIND, value);
+}
+
+export async function setBackgroundImageId(value: string | null): Promise<void> {
+  await writePref(KEY_BG_IMAGE_ID, value);
+}
+
+export async function setBackgroundOpacity(value: number): Promise<void> {
+  await writePref(KEY_BG_OPACITY, clampBgOpacity(value));
+}
+
+export async function setBackgroundBlur(value: number): Promise<void> {
+  await writePref(KEY_BG_BLUR, clampBlur(value));
+}
+
 
 export async function setDefaultModel(value: ModelId): Promise<void> {
   await writePref(KEY_DEFAULT_MODEL, value);
@@ -313,12 +415,37 @@ export async function setLmstudioModelId(value: string): Promise<void> {
   await writePref(KEY_LMSTUDIO_MODEL_ID, value);
 }
 
+export async function setMlxBaseURL(value: string): Promise<void> {
+  await writePref(KEY_MLX_BASE_URL, value);
+}
+
+export async function setMlxModelId(value: string): Promise<void> {
+  await writePref(KEY_MLX_MODEL_ID, value);
+}
+
+export async function setOllamaBaseURL(value: string): Promise<void> {
+  await writePref(KEY_OLLAMA_BASE_URL, value);
+}
+
+export async function setOllamaModelId(value: string): Promise<void> {
+  await writePref(KEY_OLLAMA_MODEL_ID, value);
+}
+
 export async function setOpenaiCompatibleBaseURL(value: string): Promise<void> {
   await writePref(KEY_OPENAI_COMPAT_BASE_URL, value);
 }
 
 export async function setOpenaiCompatibleModelId(value: string): Promise<void> {
   await writePref(KEY_OPENAI_COMPAT_MODEL_ID, value);
+}
+
+export async function setOpenaiCompatibleContextLimit(
+  value: number,
+): Promise<void> {
+  const clamped = Number.isFinite(value)
+    ? Math.max(1_000, Math.round(value))
+    : DEFAULT_PREFERENCES.openaiCompatibleContextLimit;
+  await writePref(KEY_OPENAI_COMPAT_CONTEXT_LIMIT, clamped);
 }
 
 export async function setFavoriteModelIds(value: string[]): Promise<void> {
@@ -355,6 +482,13 @@ function clampFontWeight(value: number): number {
 
 export async function setTerminalFontWeight(value: number): Promise<void> {
   await writePref(KEY_TERMINAL_FONT_WEIGHT, clampFontWeight(value));
+}
+
+export async function setTerminalLetterSpacing(value: number): Promise<void> {
+  const clamped = Number.isFinite(value)
+    ? Math.max(-10, Math.min(10, Math.round(value)))
+    : 0;
+  await writePref(KEY_TERMINAL_LETTER_SPACING, clamped);
 }
 
 export async function setEditorFontFamily(value: string): Promise<void> {
@@ -408,13 +542,11 @@ export async function setZoomLevel(value: number): Promise<void> {
 export async function setShortcuts(
   value: Record<ShortcutId, KeyBinding[]> | {},
 ): Promise<void> {
-  await store.set(KEY_SHORTCUTS, value);
-  await store.save();
+  await writePref(KEY_SHORTCUTS, value);
 }
 
 export async function resetShortcuts(): Promise<void> {
-  await store.set(KEY_SHORTCUTS, DEFAULT_PREFERENCES.shortcuts);
-  await store.save();
+  await writePref(KEY_SHORTCUTS, DEFAULT_PREFERENCES.shortcuts);
 }
 
 export type PrefKey = keyof Preferences;
@@ -425,6 +557,11 @@ export async function onPreferencesChange(
 ): Promise<UnlistenFn> {
   const map: Record<string, PrefKey> = {
     [KEY_THEME]: "theme",
+    [KEY_THEME_ID]: "themeId",
+    [KEY_BG_KIND]: "backgroundKind",
+    [KEY_BG_IMAGE_ID]: "backgroundImageId",
+    [KEY_BG_OPACITY]: "backgroundOpacity",
+    [KEY_BG_BLUR]: "backgroundBlur",
     [KEY_DEFAULT_MODEL]: "defaultModelId",
     [KEY_EDITOR_THEME]: "editorTheme",
     [KEY_CUSTOM_INSTRUCTIONS]: "customInstructions",
@@ -435,14 +572,20 @@ export async function onPreferencesChange(
     [KEY_AUTOCOMPLETE_MODEL]: "autocompleteModelId",
     [KEY_LMSTUDIO_BASE_URL]: "lmstudioBaseURL",
     [KEY_LMSTUDIO_MODEL_ID]: "lmstudioModelId",
+    [KEY_MLX_BASE_URL]: "mlxBaseURL",
+    [KEY_MLX_MODEL_ID]: "mlxModelId",
+    [KEY_OLLAMA_BASE_URL]: "ollamaBaseURL",
+    [KEY_OLLAMA_MODEL_ID]: "ollamaModelId",
     [KEY_OPENAI_COMPAT_BASE_URL]: "openaiCompatibleBaseURL",
     [KEY_OPENAI_COMPAT_MODEL_ID]: "openaiCompatibleModelId",
+    [KEY_OPENAI_COMPAT_CONTEXT_LIMIT]: "openaiCompatibleContextLimit",
     [KEY_FAVORITE_MODELS]: "favoriteModelIds",
     [KEY_RECENT_MODELS]: "recentModelIds",
     [KEY_VIM_MODE]: "vimMode",
     [KEY_SHOW_HIDDEN]: "showHidden",
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
+    [KEY_TERMINAL_LETTER_SPACING]: "terminalLetterSpacing",
     [KEY_TERMINAL_FONT_SIZE]: "terminalFontSize",
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
     [KEY_EDITOR_FONT_FAMILY]: "editorFontFamily",

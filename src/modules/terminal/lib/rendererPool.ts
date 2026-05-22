@@ -8,6 +8,7 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
+import { terminalWordNavigationSequence } from "./keymap";
 
 export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -23,6 +24,11 @@ export type SlotAdapter = {
 export type LeafBridge = {
   writeToPty(data: string): void;
   resizePty(cols: number, rows: number): void;
+  // Force a SIGWINCH on the underlying PTY at the given dims. Implemented
+  // as a +1 row / restore bump because the Linux kernel suppresses winsize
+  // ioctls that don't actually change the size. Used to make alt-screen
+  // TUIs repaint from scratch after they were dormant.
+  kickPty(cols: number, rows: number): void;
 };
 
 export type Slot = {
@@ -74,6 +80,13 @@ function getRecycler(): HTMLDivElement {
   return el;
 }
 
+const MCR_BG_ACTIVE = 4.5;
+const MCR_BG_INACTIVE = 1;
+
+function bgActive(prefs: ReturnType<typeof usePreferencesStore.getState>): boolean {
+  return prefs.backgroundKind === "image" && !!prefs.backgroundImageId;
+}
+
 function termOptions() {
   const prefs = usePreferencesStore.getState();
   const weight = prefs.terminalFontWeight;
@@ -82,6 +95,7 @@ function termOptions() {
   const boldWeight = Math.min(900, Math.max(weight + 200, 700));
   return {
     fontFamily: resolveTerminalFontFamily(prefs.terminalFontFamily),
+    letterSpacing: prefs.terminalLetterSpacing,
     fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
     fontWeight: weight,
     fontWeightBold: boldWeight,
@@ -91,7 +105,16 @@ function termOptions() {
     cursorInactiveStyle: "outline" as const,
     scrollback: prefs.terminalScrollback,
     allowProposedApi: true,
+    minimumContrastRatio: bgActive(prefs) ? MCR_BG_ACTIVE : MCR_BG_INACTIVE,
   };
+}
+
+export function applyBackgroundActive(active: boolean): void {
+  const value = active ? MCR_BG_ACTIVE : MCR_BG_INACTIVE;
+  for (const slot of slots) {
+    if (slot.term.options.minimumContrastRatio === value) continue;
+    slot.term.options.minimumContrastRatio = value;
+  }
 }
 
 function createSlot(): Slot {
@@ -141,6 +164,12 @@ function createSlot(): Slot {
     if (leafId === null) return false;
     const bridge = adapter?.resolveLeaf(leafId);
     if (!bridge) return true;
+    const wordNavigation = terminalWordNavigationSequence(event);
+    if (wordNavigation) {
+      event.preventDefault();
+      if (event.type === "keydown") bridge.writeToPty(wordNavigation);
+      return false;
+    }
     if (isCtrlBackspace(event)) {
       event.preventDefault();
       if (event.type === "keydown") bridge.writeToPty("\x17");
@@ -149,6 +178,26 @@ function createSlot(): Slot {
     if (isShiftEnter(event)) {
       event.preventDefault();
       if (event.type === "keydown") bridge.writeToPty("\x1b\r");
+      return false;
+    }
+    if (isTerminalCopy(event)) {
+      if (event.type === "keydown" && slot.term.hasSelection()) {
+        const sel = slot.term.getSelection();
+        if (sel) void navigator.clipboard.writeText(sel).catch(() => {});
+      }
+      event.preventDefault();
+      return false;
+    }
+    if (isTerminalPaste(event)) {
+      if (event.type === "keydown") {
+        void navigator.clipboard
+          .readText()
+          .then((text) => {
+            if (text) bridge.writeToPty(text);
+          })
+          .catch(() => {});
+      }
+      event.preventDefault();
       return false;
     }
     return true;
@@ -202,6 +251,10 @@ export type AcquireParams = {
   leafId: number;
   container: HTMLDivElement;
   snapshot: string | null;
+  // True if the slot was in alt-screen mode (TUI like vim, htop, dofek)
+  // at the time it was released. When set, bindSlot skips ring replay
+  // and kicks SIGWINCH so the TUI repaints from scratch.
+  altScreen: boolean;
   drainRing: (write: (bytes: Uint8Array) => void) => void;
   shellExited: boolean;
   searchQuery: string | null;
@@ -262,7 +315,14 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
       console.warn("[terax] snapshot replay failed:", e);
     }
   }
-  p.drainRing((bytes) => slot.term.write(bytes));
+  if (p.altScreen) {
+    // Discard the dormant ring. TUI output is incremental cursor-positioned
+    // updates that can't be replayed coherently on top of a stale snapshot
+    // — see the SIGWINCH kick below, which makes the TUI redraw from scratch.
+    p.drainRing(() => {});
+  } else {
+    p.drainRing((bytes) => slot.term.write(bytes));
+  }
   try {
     slot.term.write("\x1b[?25h");
   } catch {}
@@ -292,6 +352,10 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
   }
 
   applyCursorBlinkOnSlot(slot, adapter?.isLeafFocused(p.leafId) ?? false);
+
+  if (p.altScreen && !p.shellExited) {
+    adapter?.resolveLeaf(p.leafId)?.kickPty(slot.term.cols, slot.term.rows);
+  }
 
   scheduleUnhide(slot);
 
@@ -375,6 +439,7 @@ export type SerializeOutput = {
   snapshot: string | null;
   cols: number;
   rows: number;
+  altScreen: boolean;
 };
 
 export function releaseSlot(leafId: number): SerializeOutput | null {
@@ -396,7 +461,12 @@ function serializeSlot(slot: Slot): SerializeOutput {
   } catch (e) {
     console.warn("[terax] serialize failed:", e);
   }
-  return { snapshot, cols: slot.term.cols, rows: slot.term.rows };
+  return {
+    snapshot,
+    cols: slot.term.cols,
+    rows: slot.term.rows,
+    altScreen: isAltScreen(slot),
+  };
 }
 
 function detachSlotFromLeaf(slot: Slot): void {
@@ -539,9 +609,10 @@ export function applyFontSize(size: number): void {
 }
 
 export function applyFontFamily(family: string): void {
+  const resolved = resolveTerminalFontFamily(family);
   for (const slot of slots) {
-    if (slot.term.options.fontFamily === family) continue;
-    slot.term.options.fontFamily = family;
+    if (slot.term.options.fontFamily === resolved) continue;
+    slot.term.options.fontFamily = resolved;
     slot.fitAddon.fit();
     if (slot.currentLeafId !== null) {
       slot.lastCols = slot.term.cols;
@@ -558,6 +629,14 @@ export function applyFontWeight(weight: number): void {
     if (slot.term.options.fontWeight === weight) continue;
     slot.term.options.fontWeight = weight;
     slot.term.options.fontWeightBold = boldWeight;
+    slot.fitAddon.fit();
+  }
+}
+
+export function applyLetterSpacing(spacing: number): void {
+  for (const slot of slots) {
+    if (slot.term.options.letterSpacing === spacing) continue;
+    slot.term.options.letterSpacing = spacing;
     slot.fitAddon.fit();
   }
 }
@@ -595,6 +674,31 @@ function applyCursorBlinkOnSlot(slot: Slot, focused: boolean): void {
 
 export function getSlotForLeaf(leafId: number): Slot | null {
   return slots.find((s) => s.currentLeafId === leafId) ?? null;
+}
+
+const IS_MAC =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
+
+function isTerminalCopy(e: KeyboardEvent): boolean {
+  return (
+    !IS_MAC &&
+    e.ctrlKey &&
+    e.shiftKey &&
+    !e.altKey &&
+    !e.metaKey &&
+    (e.code === "KeyC" || e.key === "c" || e.key === "C")
+  );
+}
+
+function isTerminalPaste(e: KeyboardEvent): boolean {
+  return (
+    !IS_MAC &&
+    e.ctrlKey &&
+    e.shiftKey &&
+    !e.altKey &&
+    !e.metaKey &&
+    (e.code === "KeyV" || e.key === "v" || e.key === "V")
+  );
 }
 
 function isCtrlBackspace(e: KeyboardEvent): boolean {

@@ -152,6 +152,9 @@ importers:
       '@uiw/codemirror-theme-github':
         specifier: ^4.25.9
         version: 4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.1)
+      '@uiw/codemirror-theme-gruvbox-dark':
+        specifier: ^4.25.9
+        version: 4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.1)
       '@uiw/codemirror-theme-nord':
         specifier: ^4.25.9
         version: 4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.1)
@@ -2316,6 +2319,9 @@ packages:
 
   '@uiw/codemirror-theme-github@4.25.9':
     resolution: {integrity: sha512-AGpTamNiySKNzq3Jc7QjpwgQRVaHUaBtmOKiUDghYSfEGjsc5uW4NUW70sSU3BnkGv+lCTUnF3175KM24BWZbw==}
+
+  '@uiw/codemirror-theme-gruvbox-dark@4.25.9':
+    resolution: {integrity: sha512-9qIa1z4zwubN2kHAs+lJvdrmMMMf69JeyVPAwSoNaImL8wUQ/J3291qcfuoZjv8RsqSzrKTgxqLHtkAhB7xcwg==}
 
   '@uiw/codemirror-theme-nord@4.25.9':
     resolution: {integrity: sha512-5c568xmMidwICADxACB1zIhKoEgqbdVrdeOUZ2p5pE6NNKGR4ATzk9OSqhvr1ZhZPNOktxqSLLRzihFaZG0bDQ==}
@@ -6728,6 +6734,14 @@ snapshots:
       - '@codemirror/view'
 
   '@uiw/codemirror-theme-github@4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.1)':
+    dependencies:
+      '@uiw/codemirror-themes': 4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.1)
+    transitivePeerDependencies:
+      - '@codemirror/language'
+      - '@codemirror/state'
+      - '@codemirror/view'
+
+  '@uiw/codemirror-theme-gruvbox-dark@4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.1)':
     dependencies:
       '@uiw/codemirror-themes': 4.25.9(@codemirror/language@6.12.3)(@codemirror/state@6.6.0)(@codemirror/view@6.41.1)
     transitivePeerDependencies:

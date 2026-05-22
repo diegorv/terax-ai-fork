@@ -37,6 +37,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
     };
 
     if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show();
         let _ = window.set_focus();
         if let Some(t) = tab.as_deref().filter(|s| !s.is_empty()) {
             // emit() serializes via JSON — no string-escape footgun, unlike
@@ -48,9 +49,9 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 
     let mut builder = WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App(url_path.into()))
         .title("Settings")
-        .inner_size(720.0, 520.0)
-        .min_inner_size(720.0, 520.0)
-        .max_inner_size(720.0, 520.0)
+        .inner_size(820.0, 620.0)
+        .min_inner_size(820.0, 620.0)
+        .max_inner_size(820.0, 620.0)
         .resizable(false)
         .visible(false)
         // Keep settings above the main app window so it doesn't get hidden
@@ -86,6 +87,8 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    workspace::init_launch_cwd();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
