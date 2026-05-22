@@ -2,8 +2,10 @@ import { DEFAULT_THEME_ID, type Theme } from "../types";
 import { caffeine } from "./caffeine";
 import { catppuccin } from "./catppuccin";
 import { claude } from "./claude";
+import { githubLightDracula } from "./github-light-dracula";
 import { gruvbox } from "./gruvbox";
 import { nord } from "./nord";
+import { nordDracula } from "./nord-dracula";
 import { rosePine } from "./rose-pine";
 import { sage } from "./sage";
 import { teraxDefault } from "./terax-default";
@@ -15,6 +17,8 @@ const BUILTIN: Theme[] = [
   claude,
   tokyoNight,
   nord,
+  nordDracula,
+  githubLightDracula,
   tide,
   sage,
   catppuccin,
