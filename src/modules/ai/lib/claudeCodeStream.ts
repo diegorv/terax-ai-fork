@@ -17,11 +17,65 @@ type BlockState =
   | {
       kind: "tool";
       toolCallId: string;
+      /** Translated Terax-style name (e.g. `bash_run`) emitted to the UI. */
       toolName: string;
+      /** Original Claude Code tool name (e.g. `Bash`) — kept so we can
+       *  remap input keys at finalization. */
+      rawToolName: string;
       inputBuf: string;
       announced: boolean;
       finalized: boolean;
     };
+
+// Claude Code CLI uses PascalCase tool names and Anthropic-style input keys
+// (`file_path`, `subagent_type`, etc). Terax's renderer keys icons, labels,
+// and per-tool summaries off its own snake_case names + key conventions. The
+// adapter normalizes both so all the existing tool UI (icons, summaries,
+// previews, output renderers) works for claude-code turns with no per-tool
+// branching in the renderer.
+const CC_TOOL_NAME_MAP: Record<string, string> = {
+  Bash: "bash_run",
+  BashOutput: "bash_logs",
+  KillBash: "bash_kill",
+  Read: "read_file",
+  Edit: "edit",
+  MultiEdit: "multi_edit",
+  Write: "write_file",
+  NotebookEdit: "edit",
+  Grep: "grep",
+  Glob: "glob",
+  LS: "list_directory",
+  TodoWrite: "todo_write",
+  Task: "run_subagent",
+};
+
+function translateToolName(name: string): string {
+  return CC_TOOL_NAME_MAP[name] ?? name;
+}
+
+function translateToolInput(rawName: string, input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const src = input as Record<string, unknown>;
+  switch (rawName) {
+    case "Read":
+    case "Edit":
+    case "MultiEdit":
+    case "Write":
+    case "NotebookEdit":
+      return { ...src, path: src.path ?? src.file_path };
+    case "Task":
+      return {
+        ...src,
+        agent: src.agent ?? src.subagent_type,
+        task: src.task ?? src.prompt,
+      };
+    case "BashOutput":
+    case "KillBash":
+      return { ...src, id: src.id ?? src.bash_id ?? src.shell_id };
+    default:
+      return src;
+  }
+}
 
 /**
  * Adapts a Claude Code CLI stream into the AI SDK's `toUIMessageStream` shape
@@ -40,6 +94,11 @@ export function buildClaudeCodeUIStream(args: BuildArgs) {
         originalMessages: options?.originalMessages,
         execute: async ({ writer }) => {
           const blocks = new Map<number, BlockState>();
+          // toolCallId → original Claude Code tool name. Persists across the
+          // tool_use → tool_result round-trip so handleUserToolResults can
+          // make tool-specific decisions (e.g. don't treat Bash exit≠0 as a
+          // hard tool error).
+          const toolCallNames = new Map<string, string>();
           let stepActive = false;
           let finishReason: string = "stop";
 
@@ -62,7 +121,10 @@ export function buildClaudeCodeUIStream(args: BuildArgs) {
                   type: "tool-input-available",
                   toolCallId: block.toolCallId,
                   toolName: block.toolName,
-                  input: safeParseJson(block.inputBuf),
+                  input: translateToolInput(
+                    block.rawToolName,
+                    safeParseJson(block.inputBuf),
+                  ),
                   dynamic: true,
                 });
                 block.finalized = true;
@@ -81,20 +143,33 @@ export function buildClaudeCodeUIStream(args: BuildArgs) {
 
               switch (evt.type) {
                 case "stream_event":
-                  handleStreamEvent(evt, blocks, writer, openStep, args.onStep);
+                  handleStreamEvent(
+                    evt,
+                    blocks,
+                    toolCallNames,
+                    writer,
+                    openStep,
+                    args.onStep,
+                  );
                   break;
 
                 case "assistant":
                   // Fallback for partial-message-less CLIs: drain content
                   // blocks that the stream_event branch never announced.
                   openStep();
-                  drainAssistantFallback(evt, blocks, writer, args.onStep);
+                  drainAssistantFallback(
+                    evt,
+                    blocks,
+                    toolCallNames,
+                    writer,
+                    args.onStep,
+                  );
                   break;
 
                 case "user":
                   // tool_result blocks live on user-role messages per Anthropic
                   // protocol — surface them as tool-output chunks.
-                  handleUserToolResults(evt, writer, args.onStep);
+                  handleUserToolResults(evt, toolCallNames, writer, args.onStep);
                   break;
 
                 case "result": {
@@ -166,6 +241,7 @@ type StreamEventWriter = Parameters<
 function handleStreamEvent(
   evt: unknown,
   blocks: Map<number, BlockState>,
+  toolCallNames: Map<string, string>,
   writer: StreamEventWriter,
   openStep: () => void,
   onStep: ((s: string | null) => void) | undefined,
@@ -194,18 +270,21 @@ function handleStreamEvent(
       } else if (block.type === "tool_use") {
         const toolCallId =
           (block.id as string | undefined) ?? `cc-tool-${idx}-${shortId()}`;
-        const toolName =
+        const rawToolName =
           typeof block.name === "string" && block.name.length > 0
             ? block.name
             : "tool";
+        const toolName = translateToolName(rawToolName);
         blocks.set(idx, {
           kind: "tool",
           toolCallId,
           toolName,
+          rawToolName,
           inputBuf: "",
           announced: false,
           finalized: false,
         });
+        toolCallNames.set(toolCallId, rawToolName);
         writer.write({
           type: "tool-input-start",
           toolCallId,
@@ -255,7 +334,10 @@ function handleStreamEvent(
           type: "tool-input-available",
           toolCallId: state.toolCallId,
           toolName: state.toolName,
-          input: safeParseJson(state.inputBuf),
+          input: translateToolInput(
+            state.rawToolName,
+            safeParseJson(state.inputBuf),
+          ),
           dynamic: true,
         });
         state.finalized = true;
@@ -274,6 +356,7 @@ function handleStreamEvent(
 function drainAssistantFallback(
   evt: unknown,
   blocks: Map<number, BlockState>,
+  toolCallNames: Map<string, string>,
   writer: StreamEventWriter,
   onStep: ((s: string | null) => void) | undefined,
 ): void {
@@ -294,15 +377,16 @@ function drainAssistantFallback(
       if (existing?.kind === "tool" && existing.finalized) continue;
       const toolCallId =
         (block.id as string | undefined) ?? `cc-tool-${idx}-${shortId()}`;
-      const toolName =
+      const rawToolName =
         typeof block.name === "string" && block.name.length > 0
           ? block.name
           : "tool";
+      const toolName = translateToolName(rawToolName);
       writer.write({
         type: "tool-input-available",
         toolCallId,
         toolName,
-        input: block.input ?? {},
+        input: translateToolInput(rawToolName, block.input ?? {}),
         dynamic: true,
       });
       onStep?.(`Used ${toolName}`);
@@ -310,16 +394,19 @@ function drainAssistantFallback(
         kind: "tool",
         toolCallId,
         toolName,
+        rawToolName,
         inputBuf: "",
         announced: true,
         finalized: true,
       });
+      toolCallNames.set(toolCallId, rawToolName);
     }
   }
 }
 
 function handleUserToolResults(
   evt: unknown,
+  toolCallNames: Map<string, string>,
   writer: StreamEventWriter,
   onStep: ((s: string | null) => void) | undefined,
 ): void {
@@ -334,7 +421,15 @@ function handleUserToolResults(
     const output = normalizeToolResultContent(
       (block as { content?: unknown }).content,
     );
-    if ((block as { is_error?: boolean }).is_error) {
+    const isError = Boolean((block as { is_error?: boolean }).is_error);
+    const rawName = toolCallNames.get(toolCallId);
+    // Claude Code's Bash tool sets is_error: true on any non-zero exit code
+    // (e.g. `pnpm audit` reporting vulns). The command still executed and
+    // produced useful output; treating that as a failed tool call paints
+    // the row red and routes the body into the Error pane. Surface Bash
+    // output as a normal result — the exit code is embedded in the text.
+    const suppressError = isError && rawName === "Bash";
+    if (isError && !suppressError) {
       writer.write({
         type: "tool-output-error",
         toolCallId,
