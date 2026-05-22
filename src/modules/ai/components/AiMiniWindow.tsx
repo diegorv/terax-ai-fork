@@ -29,7 +29,12 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { motion } from "motion/react";
 import { useEffect, useMemo } from "react";
-import { estimateCost, getModel, getModelContextLimit } from "../config";
+import {
+  estimateCost,
+  getModel,
+  getModelContextLimit,
+  isSubscriptionModel,
+} from "../config";
 import type { SessionMeta } from "../lib/sessions";
 import { useAgentsStore } from "../store/agentsStore";
 import { getOrCreateChat, useChatStore } from "../store/chatStore";
@@ -359,6 +364,12 @@ function ContextIndicator({ messages }: { messages: UIMessage[] }) {
                   <span className="font-mono text-foreground">
                     ${cost.toFixed(cost < 0.01 ? 4 : cost < 1 ? 3 : 2)}
                   </span>
+                </div>
+              )}
+              {cost == null && isSubscriptionModel(modelId) && (
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Plan</span>
+                  <span className="font-mono text-foreground">Subscription</span>
                 </div>
               )}
             </>

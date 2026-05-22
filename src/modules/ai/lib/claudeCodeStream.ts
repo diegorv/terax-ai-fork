@@ -102,6 +102,33 @@ export function buildClaudeCodeUIStream(args: BuildArgs) {
           let stepActive = false;
           let finishReason: string = "stop";
 
+          // Anthropic usage objects arrive in three places: `message_start.usage`
+          // (input only), each `message_delta.usage` (cumulative output), CC's
+          // own `assistant` event (per-step totals), and the final `result`
+          // (turn totals). Forwarding from all of them keeps the context
+          // indicator live during streaming instead of only updating at the
+          // end of the turn.
+          const forwardUsage = (rawUsage: unknown): void => {
+            if (!args.onUsage || !rawUsage || typeof rawUsage !== "object")
+              return;
+            const u = rawUsage as {
+              input_tokens?: number;
+              output_tokens?: number;
+              cache_read_input_tokens?: number;
+            };
+            const inputTokens = u.input_tokens ?? 0;
+            const outputTokens = u.output_tokens ?? 0;
+            const cached = u.cache_read_input_tokens ?? 0;
+            if (inputTokens === 0 && outputTokens === 0) return;
+            args.onUsage({
+              inputTokens,
+              outputTokens,
+              cachedInputTokens: cached,
+              lastInputTokens: inputTokens,
+              lastCachedTokens: cached,
+            });
+          };
+
           const openStep = () => {
             if (stepActive) return;
             stepActive = true;
@@ -150,10 +177,11 @@ export function buildClaudeCodeUIStream(args: BuildArgs) {
                     writer,
                     openStep,
                     args.onStep,
+                    forwardUsage,
                   );
                   break;
 
-                case "assistant":
+                case "assistant": {
                   // Fallback for partial-message-less CLIs: drain content
                   // blocks that the stream_event branch never announced.
                   openStep();
@@ -164,7 +192,10 @@ export function buildClaudeCodeUIStream(args: BuildArgs) {
                     writer,
                     args.onStep,
                   );
+                  const msg = (evt as { message?: { usage?: unknown } }).message;
+                  if (msg?.usage) forwardUsage(msg.usage);
                   break;
+                }
 
                 case "user":
                   // tool_result blocks live on user-role messages per Anthropic
@@ -174,25 +205,11 @@ export function buildClaudeCodeUIStream(args: BuildArgs) {
 
                 case "result": {
                   const r = evt as {
-                    usage?: {
-                      input_tokens?: number;
-                      output_tokens?: number;
-                      cache_read_input_tokens?: number;
-                    };
+                    usage?: unknown;
                     is_error?: boolean;
                     subtype?: string;
                   };
-                  if (args.onUsage && r.usage) {
-                    const inputTokens = r.usage.input_tokens ?? 0;
-                    const cached = r.usage.cache_read_input_tokens ?? 0;
-                    args.onUsage({
-                      inputTokens,
-                      outputTokens: r.usage.output_tokens ?? 0,
-                      cachedInputTokens: cached,
-                      lastInputTokens: inputTokens,
-                      lastCachedTokens: cached,
-                    });
-                  }
+                  if (r.usage) forwardUsage(r.usage);
                   if (r.is_error) finishReason = "error";
                   else if (r.subtype === "max_turns") finishReason = "length";
                   break;
@@ -245,6 +262,7 @@ function handleStreamEvent(
   writer: StreamEventWriter,
   openStep: () => void,
   onStep: ((s: string | null) => void) | undefined,
+  forwardUsage: (usage: unknown) => void,
 ): void {
   const inner = (
     evt as { event?: { type?: string; index?: number; [k: string]: unknown } }
@@ -257,6 +275,9 @@ function handleStreamEvent(
       // multi-turn agent runs render as discrete steps.
       blocks.clear();
       openStep();
+      const startUsage = (inner as { message?: { usage?: unknown } }).message
+        ?.usage;
+      if (startUsage) forwardUsage(startUsage);
       return;
     }
     case "content_block_start": {
@@ -344,7 +365,13 @@ function handleStreamEvent(
       }
       return;
     }
-    case "message_delta":
+    case "message_delta": {
+      // Cumulative output token count piggybacks on the same envelope as
+      // stop_reason updates — keep the indicator moving while text streams.
+      const deltaUsage = (inner as { usage?: unknown }).usage;
+      if (deltaUsage) forwardUsage(deltaUsage);
+      return;
+    }
     case "message_stop":
     case "ping":
       return;

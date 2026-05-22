@@ -752,6 +752,19 @@ export function estimateCost(
   );
 }
 
+/** Models whose usage is billed by a Pro / Max subscription instead of API
+ *  credits — the cost estimator returns null for them by design, and the UI
+ *  should surface a "Subscription" badge in place of a dollar figure. */
+const SUBSCRIPTION_MODEL_IDS: ReadonlySet<string> = new Set([
+  "claude-code-opus-4-7",
+  "claude-code-sonnet-4-6",
+  "claude-code-haiku-4-5",
+]);
+
+export function isSubscriptionModel(modelId: string | undefined): boolean {
+  return modelId ? SUBSCRIPTION_MODEL_IDS.has(modelId) : false;
+}
+
 /** Providers that do not require an API key (local servers, key-optional). */
 export const KEYLESS_PROVIDERS: readonly ProviderId[] = [
   "lmstudio",
