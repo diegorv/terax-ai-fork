@@ -97,15 +97,12 @@ fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>) {
         .map(PathBuf::from)
         .filter(|p| p.is_dir())
         .or_else(|| workspace::launch_cwd_snapshot().filter(|p| p.is_dir()))
-        .or_else(|| dirs::home_dir().filter(|p| p.is_dir()));
-    if let Some(cwd) = resolved_cwd {
-        #[cfg(windows)]
-        let cwd = PathBuf::from(cwd.to_string_lossy().replace('/', "\\"));
-        log::info!("pty cwd: {}", cwd.display());
-        cmd.cwd(cwd);
-    } else {
-        log::warn!("pty cwd: no usable directory, inheriting from process");
-    }
+        .or_else(|| dirs::home_dir().filter(|p| p.is_dir()))
+        .unwrap_or_else(workspace::safe_default_cwd);
+    #[cfg(windows)]
+    let resolved_cwd = PathBuf::from(resolved_cwd.to_string_lossy().replace('/', "\\"));
+    log::info!("pty cwd: {}", resolved_cwd.display());
+    cmd.cwd(resolved_cwd);
 }
 
 #[cfg(unix)]

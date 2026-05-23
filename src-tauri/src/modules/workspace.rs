@@ -153,6 +153,24 @@ pub fn launch_cwd_snapshot() -> Option<PathBuf> {
     LAUNCH_CWD.get().and_then(|o| o.clone())
 }
 
+/// Resolve a working directory that always points at a real, existing
+/// directory. Prefers `$HOME`; falls back to the OS temp dir (always
+/// present on every supported platform) and logs an error so the
+/// failure is observable. Never returns `/` — that path was the legacy
+/// fallback and produced silent "wrong cwd" sessions when `$HOME` was
+/// unset or unreadable.
+pub fn safe_default_cwd() -> PathBuf {
+    if let Some(home) = dirs::home_dir().filter(|p| p.is_dir()) {
+        return home;
+    }
+    let temp = std::env::temp_dir();
+    log::error!(
+        "safe_default_cwd: dirs::home_dir() unavailable, falling back to {}",
+        temp.display(),
+    );
+    temp
+}
+
 fn resolve_launch_dir() -> PathBuf {
     if let Some(cwd) = launch_cwd_snapshot() {
         return cwd;
@@ -160,7 +178,7 @@ fn resolve_launch_dir() -> PathBuf {
     if let Some(cwd) = std::env::current_dir().ok().filter(|p| is_usable_launch_dir(p)) {
         return cwd;
     }
-    dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
+    safe_default_cwd()
 }
 
 fn is_usable_launch_dir(path: &Path) -> bool {
@@ -599,6 +617,29 @@ mod tests {
     #[test]
     fn normalize_wsl_value_falls_back_when_empty() {
         assert_eq!(normalize_wsl_value(" \n".into(), "/bin/sh"), "/bin/sh");
+    }
+}
+
+#[cfg(test)]
+mod cwd_tests {
+    use super::*;
+
+    #[test]
+    fn safe_default_cwd_returns_existing_directory() {
+        // Whether `dirs::home_dir()` succeeds or the temp-dir fallback fires,
+        // the returned path must point at an existing directory — that is
+        // the entire safety invariant.
+        let cwd = safe_default_cwd();
+        assert!(cwd.is_dir(), "safe_default_cwd produced non-dir {:?}", cwd);
+    }
+
+    #[test]
+    fn safe_default_cwd_never_returns_filesystem_root() {
+        // The legacy fallback used `/`, which silently produced "wrong cwd"
+        // sessions. Even if both branches were to fail in some bizarre
+        // environment, the OS temp dir would never be `/`.
+        let cwd = safe_default_cwd();
+        assert_ne!(cwd, std::path::PathBuf::from("/"));
     }
 }
 

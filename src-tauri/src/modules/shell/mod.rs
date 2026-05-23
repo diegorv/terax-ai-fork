@@ -4,7 +4,6 @@ pub mod session;
 
 use std::collections::HashMap;
 use std::io::Read;
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{mpsc, Arc, RwLock};
@@ -183,7 +182,9 @@ pub fn shell_session_open(
             if let WorkspaceEnv::Wsl { distro } = &workspace {
                 crate::modules::workspace::wsl_home(distro.clone())?
             } else {
-                crate::modules::fs::to_canon(dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")))
+                crate::modules::fs::to_canon(
+                    crate::modules::workspace::safe_default_cwd(),
+                )
             }
         }
     };
