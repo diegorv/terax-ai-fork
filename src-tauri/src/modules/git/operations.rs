@@ -1060,3 +1060,60 @@ fn is_safe_branch_name(name: &str) -> bool {
             || c == '@'
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_safe_branch_name;
+
+    #[test]
+    fn accepts_typical_branches() {
+        assert!(is_safe_branch_name("main"));
+        assert!(is_safe_branch_name("feature/login"));
+        assert!(is_safe_branch_name("release-1.2.3"));
+        assert!(is_safe_branch_name("hotfix_2024-01"));
+        assert!(is_safe_branch_name("user/diego/wip"));
+        assert!(is_safe_branch_name("v1.0+meta"));
+        assert!(is_safe_branch_name("ci@daily"));
+    }
+
+    #[test]
+    fn rejects_empty_and_oversize() {
+        assert!(!is_safe_branch_name(""));
+        assert!(!is_safe_branch_name(&"a".repeat(256)));
+    }
+
+    #[test]
+    fn rejects_dash_prefix() {
+        // Leading dash would be parsed as a CLI flag by git.
+        assert!(!is_safe_branch_name("-rf"));
+        assert!(!is_safe_branch_name("--help"));
+    }
+
+    #[test]
+    fn rejects_check_ref_format_violations() {
+        // Trailing dot — `git checkout x.` fails cryptically.
+        assert!(!is_safe_branch_name("feature."));
+        // Trailing slash — directory marker.
+        assert!(!is_safe_branch_name("feature/"));
+        // Trailing .lock — reserved suffix.
+        assert!(!is_safe_branch_name("main.lock"));
+        // Leading slash / dot — invalid refname segments.
+        assert!(!is_safe_branch_name("/feature"));
+        assert!(!is_safe_branch_name(".feature"));
+        // Double-dot / double-slash.
+        assert!(!is_safe_branch_name("foo..bar"));
+        assert!(!is_safe_branch_name("foo//bar"));
+        // Reflog selector syntax.
+        assert!(!is_safe_branch_name("foo@{0}"));
+    }
+
+    #[test]
+    fn rejects_whitespace_and_control_chars() {
+        assert!(!is_safe_branch_name("with space"));
+        assert!(!is_safe_branch_name("with\ttab"));
+        assert!(!is_safe_branch_name("with\nnewline"));
+        assert!(!is_safe_branch_name("with|pipe"));
+        assert!(!is_safe_branch_name("with$dollar"));
+        assert!(!is_safe_branch_name("with;semi"));
+    }
+}
