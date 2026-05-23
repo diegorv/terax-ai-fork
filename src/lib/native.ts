@@ -103,6 +103,12 @@ export type GitLogEntry = {
   deletions: number;
 };
 
+export type GitBranch = {
+  name: string;
+  upstream: string | null;
+  isCurrent: boolean;
+};
+
 export type GitCommitFileChange = {
   path: string;
   originalPath: string | null;
@@ -355,6 +361,17 @@ export const native = {
     invoke<string | null>("git_remote_url", {
       repoRoot,
       name: name ?? null,
+      workspace: currentWorkspaceEnv(),
+    }),
+  gitListBranches: (repoRoot: string) =>
+    invoke<GitBranch[]>("git_list_branches", {
+      repoRoot,
+      workspace: currentWorkspaceEnv(),
+    }),
+  gitCheckout: (repoRoot: string, branch: string) =>
+    invoke<void>("git_checkout", {
+      repoRoot,
+      branch,
       workspace: currentWorkspaceEnv(),
     }),
 };
