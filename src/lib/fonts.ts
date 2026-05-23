@@ -18,6 +18,15 @@ const NERD_FONT_CANDIDATES = [
 
 const FALLBACK_CHAIN = '"JetBrains Mono", SFMono-Regular, Menlo, monospace';
 
+export function resolveTerminalFontFamily(custom: string | null | undefined): string {
+  const trimmed = custom?.trim();
+  if (!trimmed) return detectMonoFontFamily();
+  // Strip any quotes the user pasted in by accident, then re-quote uniformly
+  // so the CSS value parses cleanly regardless of spaces in the family name.
+  const cleaned = trimmed.replace(/^["']|["']$/g, "");
+  return `"${cleaned}", ${FALLBACK_CHAIN}`;
+}
+
 let detected: string | null = null;
 let monoReady: Promise<void> | null = null;
 

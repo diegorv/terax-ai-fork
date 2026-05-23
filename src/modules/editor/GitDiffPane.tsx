@@ -7,7 +7,13 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildSharedExtensions, languageCompartment } from "./lib/extensions";
+import {
+  buildEditorTheme,
+  buildSharedExtensions,
+  editorThemeCompartment,
+  languageCompartment,
+} from "./lib/extensions";
+import { resolveTerminalFontFamily } from "@/lib/fonts";
 import {
   fetchCommitDiff,
   fetchWorkingDiff,
@@ -239,6 +245,23 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
       cancelled = true;
     };
   }, [useFallback, path, initialLang, state.kind]);
+
+  const editorFontFamily = usePreferencesStore((p) => p.editorFontFamily);
+  const editorFontSize = usePreferencesStore((p) => p.editorFontSize);
+  const editorFontWeight = usePreferencesStore((p) => p.editorFontWeight);
+  useEffect(() => {
+    const view = cmRef.current?.view;
+    if (!view) return;
+    view.dispatch({
+      effects: editorThemeCompartment.reconfigure(
+        buildEditorTheme({
+          fontFamily: resolveTerminalFontFamily(editorFontFamily),
+          fontSize: editorFontSize,
+          fontWeight: editorFontWeight,
+        }),
+      ),
+    });
+  }, [editorFontFamily, editorFontSize, editorFontWeight]);
 
   const stats = useMemo(
     () => (useFallback ? countDiffLines(fallbackPatch) : { added: 0, removed: 0 }),

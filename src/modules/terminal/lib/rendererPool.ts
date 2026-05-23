@@ -1,4 +1,4 @@
-import { detectMonoFontFamily } from "@/lib/fonts";
+import { resolveTerminalFontFamily } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -89,10 +89,16 @@ function bgActive(prefs: ReturnType<typeof usePreferencesStore.getState>): boole
 
 function termOptions() {
   const prefs = usePreferencesStore.getState();
+  const weight = prefs.terminalFontWeight;
+  // xterm clamps fontWeightBold >= fontWeight; bump by one step (or stay at
+  // 700) so bold cells remain visibly heavier than the base weight.
+  const boldWeight = Math.min(900, Math.max(weight + 200, 700));
   return {
-    fontFamily: prefs.terminalFontFamily || detectMonoFontFamily(),
+    fontFamily: resolveTerminalFontFamily(prefs.terminalFontFamily),
     letterSpacing: prefs.terminalLetterSpacing,
     fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
+    fontWeight: weight,
+    fontWeightBold: boldWeight,
     theme: buildTerminalTheme(),
     cursorBlink: false,
     cursorStyle: "bar" as const,
@@ -602,16 +608,8 @@ export function applyFontSize(size: number): void {
   }
 }
 
-export function applyLetterSpacing(spacing: number): void {
-  for (const slot of slots) {
-    if (slot.term.options.letterSpacing === spacing) continue;
-    slot.term.options.letterSpacing = spacing;
-    slot.fitAddon.fit();
-  }
-}
-
 export function applyFontFamily(family: string): void {
-  const resolved = family || detectMonoFontFamily();
+  const resolved = resolveTerminalFontFamily(family);
   for (const slot of slots) {
     if (slot.term.options.fontFamily === resolved) continue;
     slot.term.options.fontFamily = resolved;
@@ -622,6 +620,24 @@ export function applyFontFamily(family: string): void {
       const bridge = adapter?.resolveLeaf(slot.currentLeafId);
       bridge?.resizePty(slot.term.cols, slot.term.rows);
     }
+  }
+}
+
+export function applyFontWeight(weight: number): void {
+  const boldWeight = Math.min(900, Math.max(weight + 200, 700));
+  for (const slot of slots) {
+    if (slot.term.options.fontWeight === weight) continue;
+    slot.term.options.fontWeight = weight;
+    slot.term.options.fontWeightBold = boldWeight;
+    slot.fitAddon.fit();
+  }
+}
+
+export function applyLetterSpacing(spacing: number): void {
+  for (const slot of slots) {
+    if (slot.term.options.letterSpacing === spacing) continue;
+    slot.term.options.letterSpacing = spacing;
+    slot.fitAddon.fit();
   }
 }
 

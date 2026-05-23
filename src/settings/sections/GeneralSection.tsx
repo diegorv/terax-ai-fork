@@ -1,3 +1,23 @@
+import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -17,14 +37,23 @@ import { cn } from "@/lib/utils";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { ThemePref } from "@/modules/settings/store";
 import {
+  EDITOR_FONT_FAMILY_DEFAULT,
+  EDITOR_FONT_SIZES,
+  EDITOR_FONT_WEIGHTS,
+  TERMINAL_FONT_FAMILY_DEFAULT,
   TERMINAL_FONT_SIZES,
+  TERMINAL_FONT_WEIGHTS,
   TERMINAL_SCROLLBACK_PRESETS,
   setAutostart,
+  setEditorFontFamily,
+  setEditorFontSize,
+  setEditorFontWeight,
   setRestoreWindowState,
   setShowHidden,
   setTerminalFontFamily,
-  setTerminalLetterSpacing,
   setTerminalFontSize,
+  setTerminalFontWeight,
+  setTerminalLetterSpacing,
   setTerminalScrollback,
   setTerminalWebglEnabled,
   setVimMode,
@@ -32,13 +61,15 @@ import {
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
 import {
+  ArrowDown01Icon,
   ComputerIcon,
   Moon02Icon,
   Sun03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { invoke } from "@tauri-apps/api/core";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
 
@@ -72,8 +103,48 @@ export function GeneralSection() {
     (s) => s.terminalLetterSpacing,
   );
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
+  const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
+  const editorFontFamily = usePreferencesStore((s) => s.editorFontFamily);
+  const editorFontSize = usePreferencesStore((s) => s.editorFontSize);
+  const editorFontWeight = usePreferencesStore((s) => s.editorFontWeight);
   const zoomLevel = usePreferencesStore((s) => s.zoomLevel);
+
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
+  const [fontPickerOpen, setFontPickerOpen] = useState(false);
+  const [fontSearch, setFontSearch] = useState("");
+  const [editorFontPickerOpen, setEditorFontPickerOpen] = useState(false);
+  const [editorFontSearch, setEditorFontSearch] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    invoke<string[]>("fonts_list_system")
+      .then((list) => {
+        if (alive) setSystemFonts(list);
+      })
+      .catch(() => {
+        if (alive) setSystemFonts([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const filteredFonts = useMemo(() => {
+    const q = fontSearch.trim().toLowerCase();
+    const base = q
+      ? systemFonts.filter((f) => f.toLowerCase().includes(q))
+      : systemFonts;
+    return base.slice(0, 200);
+  }, [systemFonts, fontSearch]);
+
+  const filteredEditorFonts = useMemo(() => {
+    const q = editorFontSearch.trim().toLowerCase();
+    const base = q
+      ? systemFonts.filter((f) => f.toLowerCase().includes(q))
+      : systemFonts;
+    return base.slice(0, 200);
+  }, [systemFonts, editorFontSearch]);
 
   useEffect(() => {
     let alive = true;
@@ -99,6 +170,42 @@ export function GeneralSection() {
       console.error("autostart toggle failed", e);
     }
   };
+
+  const onPickTerminalFontSize = (size: number) => void setTerminalFontSize(size);
+
+  const onPickFontWeight = (weight: number) =>
+    void setTerminalFontWeight(weight);
+
+  const onPickFontFamily = (family: string) => {
+    void setTerminalFontFamily(family);
+    setFontPickerOpen(false);
+    setFontSearch("");
+  };
+
+  const onPickEditorFontFamily = (family: string) => {
+    void setEditorFontFamily(family);
+    setEditorFontPickerOpen(false);
+    setEditorFontSearch("");
+  };
+
+  const onPickEditorFontSize = (size: number) => void setEditorFontSize(size);
+
+  const onPickEditorFontWeight = (weight: number) =>
+    void setEditorFontWeight(weight);
+
+  const fontFamilyLabel =
+    terminalFontFamily.trim() || `Auto (${TERMINAL_FONT_FAMILY_DEFAULT})`;
+
+  const fontWeightLabel =
+    TERMINAL_FONT_WEIGHTS.find((w) => w.value === terminalFontWeight)?.label ??
+    `${terminalFontWeight}`;
+
+  const editorFontFamilyLabel =
+    editorFontFamily.trim() || `Auto (${EDITOR_FONT_FAMILY_DEFAULT})`;
+
+  const editorFontWeightLabel =
+    EDITOR_FONT_WEIGHTS.find((w) => w.value === editorFontWeight)?.label ??
+    `${editorFontWeight}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -165,6 +272,152 @@ export function GeneralSection() {
             onCheckedChange={(v) => void setVimMode(v)}
           />
         </SettingRow>
+        <SettingRow
+          title="Font family"
+          description="Pick any monospace font installed on the system."
+        >
+          <Popover
+            open={editorFontPickerOpen}
+            onOpenChange={setEditorFontPickerOpen}
+          >
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 w-[220px] justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span className="truncate">{editorFontFamilyLabel}</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[260px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
+              <Command>
+                <CommandInput
+                  placeholder="Search fonts..."
+                  value={editorFontSearch}
+                  onValueChange={setEditorFontSearch}
+                />
+                <CommandList className="max-h-64 overflow-y-auto">
+                  <CommandEmpty>
+                    {systemFonts.length === 0
+                      ? "Font enumeration unavailable on this platform."
+                      : "No fonts found."}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="__editor_default__"
+                      onSelect={() =>
+                        onPickEditorFontFamily(EDITOR_FONT_FAMILY_DEFAULT)
+                      }
+                      className={cn(
+                        "text-[12px]",
+                        editorFontFamily === EDITOR_FONT_FAMILY_DEFAULT &&
+                          "bg-accent/50",
+                      )}
+                    >
+                      Default ({EDITOR_FONT_FAMILY_DEFAULT})
+                    </CommandItem>
+                    {filteredEditorFonts.map((font) => (
+                      <CommandItem
+                        key={font}
+                        value={font}
+                        onSelect={() => onPickEditorFontFamily(font)}
+                        className={cn(
+                          "text-[12px]",
+                          font === editorFontFamily && "bg-accent/50",
+                        )}
+                        style={{ fontFamily: `"${font}"` }}
+                      >
+                        {font}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </SettingRow>
+        <SettingRow title="Font size" description="Editor text size.">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span>{editorFontSize} px</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[80px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
+              {EDITOR_FONT_SIZES.map((size) => (
+                <DropdownMenuItem
+                  key={size}
+                  onSelect={() => onPickEditorFontSize(size)}
+                  className={cn(
+                    "rounded-none px-3 py-1.5 text-[12px]",
+                    size === editorFontSize && "bg-accent/50",
+                  )}
+                >
+                  {size} px
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SettingRow>
+        <SettingRow
+          title="Font weight"
+          description="Pick a heavier weight if editor text looks too thin."
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 w-[180px] justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span className="truncate">{editorFontWeightLabel}</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[180px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
+              {EDITOR_FONT_WEIGHTS.map((w) => (
+                <DropdownMenuItem
+                  key={w.value}
+                  onSelect={() => onPickEditorFontWeight(w.value)}
+                  className={cn(
+                    "rounded-none px-3 py-1.5 text-[12px]",
+                    w.value === editorFontWeight && "bg-accent/50",
+                  )}
+                  style={{ fontWeight: w.value }}
+                >
+                  {w.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SettingRow>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -219,15 +472,72 @@ export function GeneralSection() {
         </SettingRow>
         <SettingRow
           title="Font family"
-          description='Nerd Font name for icons (e.g. "CaskaydiaCove Nerd Font Mono"). Leave blank to auto-detect.'
+          description="Pick any monospace font installed on the system."
         >
-          <input
-            type="text"
-            value={terminalFontFamily}
-            placeholder="Auto-detect"
-            onChange={(e) => void setTerminalFontFamily(e.target.value)}
-            className="h-8 w-48 rounded-md border border-border bg-background px-2.5 text-[12px] outline-none focus:border-foreground/40"
-          />
+          <Popover open={fontPickerOpen} onOpenChange={setFontPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 w-[220px] justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span className="truncate">{fontFamilyLabel}</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[260px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
+              <Command>
+                <CommandInput
+                  placeholder="Search fonts..."
+                  value={fontSearch}
+                  onValueChange={setFontSearch}
+                />
+                <CommandList className="max-h-64 overflow-y-auto">
+                  <CommandEmpty>
+                    {systemFonts.length === 0
+                      ? "Font enumeration unavailable on this platform."
+                      : "No fonts found."}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="__default__"
+                      onSelect={() =>
+                        onPickFontFamily(TERMINAL_FONT_FAMILY_DEFAULT)
+                      }
+                      className={cn(
+                        "text-[12px]",
+                        terminalFontFamily === TERMINAL_FONT_FAMILY_DEFAULT &&
+                          "bg-accent/50",
+                      )}
+                    >
+                      Default ({TERMINAL_FONT_FAMILY_DEFAULT})
+                    </CommandItem>
+                    {filteredFonts.map((font) => (
+                      <CommandItem
+                        key={font}
+                        value={font}
+                        onSelect={() => onPickFontFamily(font)}
+                        className={cn(
+                          "text-[12px]",
+                          font === terminalFontFamily && "bg-accent/50",
+                        )}
+                        style={{ fontFamily: `"${font}"` }}
+                      >
+                        {font}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </SettingRow>
         <SettingRow
           title="Letter spacing"
@@ -250,21 +560,78 @@ export function GeneralSection() {
           </Select>
         </SettingRow>
         <SettingRow title="Font size" description="Terminal text size.">
-          <Select
-            value={String(terminalFontSize)}
-            onValueChange={(v) => void setTerminalFontSize(Number(v))}
-          >
-            <SelectTrigger size="sm" className="h-8 w-28 text-[12px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span>{terminalFontSize} px</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[80px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
               {TERMINAL_FONT_SIZES.map((size) => (
-                <SelectItem key={size} value={String(size)} className="text-[12px]">
+                <DropdownMenuItem
+                  key={size}
+                  onSelect={() => onPickTerminalFontSize(size)}
+                  className={cn(
+                    "rounded-none px-3 py-1.5 text-[12px]",
+                    size === terminalFontSize && "bg-accent/50",
+                  )}
+                >
                   {size} px
-                </SelectItem>
+                </DropdownMenuItem>
               ))}
-            </SelectContent>
-          </Select>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SettingRow>
+        <SettingRow
+          title="Font weight"
+          description="Pick a heavier weight if glyphs look too thin compared to your usual terminal."
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-8 w-[180px] justify-between gap-2 rounded-none px-2.5 text-[12px]"
+              >
+                <span className="truncate">{fontWeightLabel}</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={12}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[180px] rounded-none border border-border bg-popover p-0 shadow-none ring-0"
+            >
+              {TERMINAL_FONT_WEIGHTS.map((w) => (
+                <DropdownMenuItem
+                  key={w.value}
+                  onSelect={() => onPickFontWeight(w.value)}
+                  className={cn(
+                    "rounded-none px-3 py-1.5 text-[12px]",
+                    w.value === terminalFontWeight && "bg-accent/50",
+                  )}
+                  style={{ fontWeight: w.value }}
+                >
+                  {w.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </SettingRow>
         <SettingRow
           title="Scrollback"

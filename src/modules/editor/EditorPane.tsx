@@ -19,10 +19,13 @@ import {
 import { Prec, type Extension } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import {
+  buildEditorTheme,
   buildSharedExtensions,
+  editorThemeCompartment,
   languageCompartment,
   vimCompartment,
 } from "./lib/extensions";
+import { resolveTerminalFontFamily } from "@/lib/fonts";
 import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
 initVimGlobals();
@@ -125,6 +128,23 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
       });
     }, [vimMode]);
+
+    const editorFontFamily = usePreferencesStore((p) => p.editorFontFamily);
+    const editorFontSize = usePreferencesStore((p) => p.editorFontSize);
+    const editorFontWeight = usePreferencesStore((p) => p.editorFontWeight);
+    useEffect(() => {
+      const view = cmRef.current?.view;
+      if (!view) return;
+      view.dispatch({
+        effects: editorThemeCompartment.reconfigure(
+          buildEditorTheme({
+            fontFamily: resolveTerminalFontFamily(editorFontFamily),
+            fontSize: editorFontSize,
+            fontWeight: editorFontWeight,
+          }),
+        ),
+      });
+    }, [editorFontFamily, editorFontSize, editorFontWeight]);
 
     useEffect(() => {
       let cancelled = false;

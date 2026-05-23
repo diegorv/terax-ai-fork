@@ -14,6 +14,7 @@ import {
   applyBackgroundActive,
   applyFontFamily,
   applyFontSize,
+  applyFontWeight,
   applyLetterSpacing,
   applyTheme as applyPoolTheme,
   applyScrollback,
@@ -358,10 +359,15 @@ export function useTerminalSession({
     applyFontSize(Math.max(4, Math.round(fontSize * zoomLevel)));
   }, [fontSize, zoomLevel]);
 
-  const fontFamily = usePreferencesStore((p) => p.terminalFontFamily);
+  const fontFamilyPref = usePreferencesStore((p) => p.terminalFontFamily);
   useEffect(() => {
-    applyFontFamily(fontFamily);
-  }, [fontFamily]);
+    applyFontFamily(fontFamilyPref);
+  }, [fontFamilyPref]);
+
+  const fontWeightPref = usePreferencesStore((p) => p.terminalFontWeight);
+  useEffect(() => {
+    applyFontWeight(fontWeightPref);
+  }, [fontWeightPref]);
 
   const letterSpacing = usePreferencesStore((p) => p.terminalLetterSpacing);
   useEffect(() => {

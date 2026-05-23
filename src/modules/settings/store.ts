@@ -52,7 +52,11 @@ export type Preferences = {
   terminalFontFamily: string;
   terminalLetterSpacing: number;
   terminalFontSize: number;
+  terminalFontWeight: number;
   terminalScrollback: number;
+  editorFontFamily: string;
+  editorFontSize: number;
+  editorFontWeight: number;
   lastWslDistro: string | null;
   zoomLevel: number;
   shortcuts: Record<ShortcutId, KeyBinding[]>;
@@ -75,18 +79,44 @@ const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
+const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
+const KEY_EDITOR_FONT_FAMILY = "editorFontFamily";
+const KEY_EDITOR_FONT_SIZE = "editorFontSize";
+const KEY_EDITOR_FONT_WEIGHT = "editorFontWeight";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
 const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
 const KEY_SHORTCUTS = "shortcuts";
 
-export const TERMINAL_FONT_SIZE_DEFAULT = 14;
+export const TERMINAL_FONT_SIZE_DEFAULT = 15;
+export const TERMINAL_FONT_FAMILY_DEFAULT = "FiraCode Nerd Font Mono";
+export const TERMINAL_FONT_WEIGHT_DEFAULT = 500;
+
+export const TERMINAL_FONT_WEIGHTS: {
+  value: number;
+  label: string;
+}[] = [
+  { value: 300, label: "Light (300)" },
+  { value: 400, label: "Regular (400)" },
+  { value: 500, label: "Medium (500)" },
+  { value: 600, label: "Semibold (600)" },
+  { value: 700, label: "Bold (700)" },
+];
+
 export const TERMINAL_FONT_SIZE_MIN = 8;
 export const TERMINAL_FONT_SIZE_MAX = 32;
 
 export const TERMINAL_FONT_SIZES = [
   10, 12, 13, 14, 15, 16, 18, 20, 22, 24,
 ] as const;
+
+export const EDITOR_FONT_SIZE_DEFAULT = 14;
+export const EDITOR_FONT_SIZE_MIN = 8;
+export const EDITOR_FONT_SIZE_MAX = 32;
+export const EDITOR_FONT_FAMILY_DEFAULT = TERMINAL_FONT_FAMILY_DEFAULT;
+export const EDITOR_FONT_WEIGHT_DEFAULT = 500;
+export const EDITOR_FONT_SIZES = TERMINAL_FONT_SIZES;
+export const EDITOR_FONT_WEIGHTS = TERMINAL_FONT_WEIGHTS;
 
 export const TERMINAL_SCROLLBACK_DEFAULT = 2000;
 export const TERMINAL_SCROLLBACK_MIN = 200;
@@ -108,9 +138,13 @@ export const DEFAULT_PREFERENCES: Preferences = {
   vimMode: false,
   showHidden: false,
   terminalWebglEnabled: true,
-  terminalFontFamily: "",
+  terminalFontFamily: TERMINAL_FONT_FAMILY_DEFAULT,
   terminalLetterSpacing: 0,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
+  terminalFontWeight: TERMINAL_FONT_WEIGHT_DEFAULT,
+  editorFontFamily: EDITOR_FONT_FAMILY_DEFAULT,
+  editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
+  editorFontWeight: EDITOR_FONT_WEIGHT_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
   lastWslDistro: null,
   zoomLevel: 1.0,
@@ -174,6 +208,20 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalFontSize:
       get<number>(KEY_TERMINAL_FONT_SIZE) ??
       DEFAULT_PREFERENCES.terminalFontSize,
+    terminalFontWeight: clampFontWeight(
+      get<number>(KEY_TERMINAL_FONT_WEIGHT) ??
+        DEFAULT_PREFERENCES.terminalFontWeight,
+    ),
+    editorFontFamily:
+      get<string>(KEY_EDITOR_FONT_FAMILY) ??
+      DEFAULT_PREFERENCES.editorFontFamily,
+    editorFontSize:
+      get<number>(KEY_EDITOR_FONT_SIZE) ??
+      DEFAULT_PREFERENCES.editorFontSize,
+    editorFontWeight: clampFontWeight(
+      get<number>(KEY_EDITOR_FONT_WEIGHT) ??
+        DEFAULT_PREFERENCES.editorFontWeight,
+    ),
     terminalScrollback: clampScrollback(
       get<number>(KEY_TERMINAL_SCROLLBACK) ??
         DEFAULT_PREFERENCES.terminalScrollback,
@@ -255,9 +303,41 @@ export async function setTerminalFontFamily(value: string): Promise<void> {
   await writePref(KEY_TERMINAL_FONT_FAMILY, value.trim());
 }
 
+function clampFontWeight(value: number): number {
+  if (!Number.isFinite(value)) return TERMINAL_FONT_WEIGHT_DEFAULT;
+  // CSS font-weight is 1-1000; restrict to the steps the picker exposes so
+  // the WebGL glyph atlas doesn't churn on arbitrary fractional values.
+  const rounded = Math.round(value / 100) * 100;
+  return Math.min(900, Math.max(100, rounded));
+}
+
+export async function setTerminalFontWeight(value: number): Promise<void> {
+  await writePref(KEY_TERMINAL_FONT_WEIGHT, clampFontWeight(value));
+}
+
 export async function setTerminalLetterSpacing(value: number): Promise<void> {
-  const clamped = Number.isFinite(value) ? Math.max(-10, Math.min(10, Math.round(value))) : 0;
+  const clamped = Number.isFinite(value)
+    ? Math.max(-10, Math.min(10, Math.round(value)))
+    : 0;
   await writePref(KEY_TERMINAL_LETTER_SPACING, clamped);
+}
+
+export async function setEditorFontFamily(value: string): Promise<void> {
+  await writePref(KEY_EDITOR_FONT_FAMILY, value.trim());
+}
+
+export async function setEditorFontSize(value: number): Promise<void> {
+  const clamped = Number.isFinite(value)
+    ? Math.min(
+        EDITOR_FONT_SIZE_MAX,
+        Math.max(EDITOR_FONT_SIZE_MIN, Math.round(value)),
+      )
+    : EDITOR_FONT_SIZE_DEFAULT;
+  await writePref(KEY_EDITOR_FONT_SIZE, clamped);
+}
+
+export async function setEditorFontWeight(value: number): Promise<void> {
+  await writePref(KEY_EDITOR_FONT_WEIGHT, clampFontWeight(value));
 }
 
 export async function setTerminalFontSize(value: number): Promise<void> {
@@ -322,6 +402,10 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
     [KEY_TERMINAL_LETTER_SPACING]: "terminalLetterSpacing",
     [KEY_TERMINAL_FONT_SIZE]: "terminalFontSize",
+    [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
+    [KEY_EDITOR_FONT_FAMILY]: "editorFontFamily",
+    [KEY_EDITOR_FONT_SIZE]: "editorFontSize",
+    [KEY_EDITOR_FONT_WEIGHT]: "editorFontWeight",
     [KEY_TERMINAL_SCROLLBACK]: "terminalScrollback",
     [KEY_LAST_WSL_DISTRO]: "lastWslDistro",
     [KEY_ZOOM_LEVEL]: "zoomLevel",
