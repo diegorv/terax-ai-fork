@@ -40,7 +40,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type ReactNode,
 } from "react";
 import {
   SOURCE_CONTROL_TOOLTIP_CLASS,
@@ -822,7 +821,4 @@ function CommitFeedback({
   );
 }
 
-// re-exported helpers used by Surface for tooltip classes etc
 export { SOURCE_CONTROL_TOOLTIP_CLASS };
-// dummy export to silence ReactNode unused warning if Surface tree-shakes
-export type _ReactNode = ReactNode;
