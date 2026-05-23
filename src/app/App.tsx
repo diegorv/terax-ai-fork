@@ -110,13 +110,29 @@ function sidebarWidthKey(view: SidebarViewId): string {
   return `${SIDEBAR_WIDTH_STORAGE_KEY_PREFIX}.${suffix}`;
 }
 
+const LEGACY_SIDEBAR_WIDTH_KEY = "terax.sidebar.width";
+
 function readSidebarWidth(view: SidebarViewId): number {
   try {
     const stored = window.localStorage.getItem(sidebarWidthKey(view));
     const parsed = stored ? Number.parseInt(stored, 10) : NaN;
-    return Number.isFinite(parsed)
-      ? clampSidebarWidth(parsed)
-      : SIDEBAR_DEFAULT_WIDTHS[view];
+    if (Number.isFinite(parsed)) return clampSidebarWidth(parsed);
+    // Migrate from pre-per-view storage so users do not lose their saved width.
+    const legacy = window.localStorage.getItem(LEGACY_SIDEBAR_WIDTH_KEY);
+    const legacyParsed = legacy ? Number.parseInt(legacy, 10) : NaN;
+    if (Number.isFinite(legacyParsed)) {
+      const width = clampSidebarWidth(legacyParsed);
+      if (view === "explorer") {
+        try {
+          window.localStorage.setItem(sidebarWidthKey(view), String(width));
+          window.localStorage.removeItem(LEGACY_SIDEBAR_WIDTH_KEY);
+        } catch {
+          /* ignore */
+        }
+        return width;
+      }
+    }
+    return SIDEBAR_DEFAULT_WIDTHS[view];
   } catch {
     return SIDEBAR_DEFAULT_WIDTHS[view];
   }
