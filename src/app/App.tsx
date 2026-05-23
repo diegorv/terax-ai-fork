@@ -40,7 +40,16 @@ import {
   type ShortcutHandlers,
   type ShortcutId,
 } from "@/modules/shortcuts";
-import { SidebarTopToggle, type SidebarViewId } from "@/modules/sidebar";
+import {
+  SidebarTopToggle,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_VIEW_STORAGE_KEY,
+  readSidebarView,
+  readSidebarWidth,
+  sidebarWidthKey,
+  type SidebarViewId,
+} from "@/modules/sidebar";
 import {
   SourceControlSurface,
   useSourceControl,
@@ -89,64 +98,27 @@ function dirname(path: string | null): string | null {
   return normalized.slice(0, idx);
 }
 
-const SIDEBAR_DEFAULT_WIDTHS: Record<SidebarViewId, number> = {
-  explorer: 260,
-  "source-control": 520,
-};
-const SIDEBAR_MIN_WIDTH = 220;
-const SIDEBAR_MAX_WIDTH = 900;
-const SIDEBAR_WIDTH_STORAGE_KEY_PREFIX = "terax.sidebar.width";
-const SIDEBAR_VIEW_STORAGE_KEY = "terax.sidebar.view";
-
-function clampSidebarWidth(width: number): number {
-  return Math.min(
-    SIDEBAR_MAX_WIDTH,
-    Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)),
-  );
-}
-
-function sidebarWidthKey(view: SidebarViewId): string {
-  const suffix = view === "source-control" ? "source-control" : "files";
-  return `${SIDEBAR_WIDTH_STORAGE_KEY_PREFIX}.${suffix}`;
-}
-
-const LEGACY_SIDEBAR_WIDTH_KEY = "terax.sidebar.width";
-
-function readSidebarWidth(view: SidebarViewId): number {
+function safeReadSidebarWidth(view: SidebarViewId): number {
   try {
-    const stored = window.localStorage.getItem(sidebarWidthKey(view));
-    const parsed = stored ? Number.parseInt(stored, 10) : NaN;
-    if (Number.isFinite(parsed)) return clampSidebarWidth(parsed);
-    // Migrate from pre-per-view storage so users do not lose their saved width.
-    const legacy = window.localStorage.getItem(LEGACY_SIDEBAR_WIDTH_KEY);
-    const legacyParsed = legacy ? Number.parseInt(legacy, 10) : NaN;
-    if (Number.isFinite(legacyParsed)) {
-      const width = clampSidebarWidth(legacyParsed);
-      if (view === "explorer") {
-        try {
-          window.localStorage.setItem(sidebarWidthKey(view), String(width));
-          window.localStorage.removeItem(LEGACY_SIDEBAR_WIDTH_KEY);
-        } catch {
-          /* ignore */
-        }
-        return width;
-      }
-    }
-    return SIDEBAR_DEFAULT_WIDTHS[view];
+    return readSidebarWidth(view, window.localStorage);
   } catch {
-    return SIDEBAR_DEFAULT_WIDTHS[view];
+    return readSidebarWidth(view, MEMORY_STORAGE);
   }
 }
 
-function readSidebarView(): SidebarViewId {
+function safeReadSidebarView(): SidebarViewId {
   try {
-    const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-    if (stored === "explorer" || stored === "source-control") return stored;
+    return readSidebarView(window.localStorage);
   } catch {
-    // ignore
+    return "explorer";
   }
-  return "explorer";
 }
+
+const MEMORY_STORAGE = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+} as const;
 
 export default function App() {
   const {
@@ -198,12 +170,12 @@ export default function App() {
 
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
   const sidebarWidthsRef = useRef<Record<SidebarViewId, number>>({
-    explorer: readSidebarWidth("explorer"),
-    "source-control": readSidebarWidth("source-control"),
+    explorer: safeReadSidebarWidth("explorer"),
+    "source-control": safeReadSidebarWidth("source-control"),
   });
   const sidebarWidthWriteTimerRef = useRef(0);
   const [sidebarView, setSidebarViewState] =
-    useState<SidebarViewId>(readSidebarView);
+    useState<SidebarViewId>(safeReadSidebarView);
   const sidebarViewRef = useRef(sidebarView);
   sidebarViewRef.current = sidebarView;
   const persistSidebarView = useCallback((view: SidebarViewId) => {
