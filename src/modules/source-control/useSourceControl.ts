@@ -35,6 +35,7 @@ export type SourceControlSummary = {
   localError: string | null;
   busyAction: SourceControlRemoteAction | null;
   lastRemoteError: string | null;
+  lastFetchedAt: number | null;
   applyStatus: (
     updater: (status: GitStatusSnapshot) => GitStatusSnapshot,
   ) => void;
@@ -464,6 +465,10 @@ export function useSourceControl(
     };
   }, [refresh, enabled]);
 
+  const lastFetchedAt = state.repo
+    ? (autoFetchByRepoRef.current.get(state.repo.repoRoot) ?? null)
+    : null;
+
   return useMemo<SourceControlSummary>(
     () => ({
       repo: state.repo,
@@ -477,10 +482,11 @@ export function useSourceControl(
       localError: state.localError,
       busyAction: state.busyAction,
       lastRemoteError: state.lastRemoteError,
+      lastFetchedAt,
       applyStatus,
       refresh,
       runRemoteAction,
     }),
-    [state, applyStatus, refresh, runRemoteAction],
+    [state, lastFetchedAt, applyStatus, refresh, runRemoteAction],
   );
 }

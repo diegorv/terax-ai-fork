@@ -46,7 +46,7 @@ import {
 } from "@/modules/shortcuts";
 import { SidebarTopToggle, type SidebarViewId } from "@/modules/sidebar";
 import {
-  SourceControlPanel,
+  SourceControlSurface,
   useSourceControl,
 } from "@/modules/source-control";
 import { StatusBar } from "@/modules/statusbar";
@@ -1057,11 +1057,10 @@ export default function App() {
                         onRevealInTerminal={cdInNewTab}
                       />
                     ) : (
-                      <SourceControlPanel
+                      <SourceControlSurface
                         open
                         sourceControl={sourceControl}
                         onOpenDiff={openGitDiffTab}
-                        onOpenGitGraph={openGitGraphFromContext}
                       />
                     )}
                   </div>
