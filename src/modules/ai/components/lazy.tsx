@@ -1,5 +1,4 @@
 import { lazy, Suspense } from "react";
-import type { AgentRunBridgeProps } from "./AgentRunBridge";
 import type { SelectionAskAiProps } from "./SelectionAskAi";
 
 const AgentRunBridgeInner = lazy(() =>
@@ -24,10 +23,10 @@ const SelectionAskAiInner = lazy(() =>
   import("./SelectionAskAi").then((m) => ({ default: m.SelectionAskAi })),
 );
 
-export function AgentRunBridge(props: AgentRunBridgeProps) {
+export function AgentRunBridge() {
   return (
     <Suspense fallback={null}>
-      <AgentRunBridgeInner {...props} />
+      <AgentRunBridgeInner />
     </Suspense>
   );
 }
