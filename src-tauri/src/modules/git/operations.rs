@@ -974,19 +974,22 @@ pub fn list_local_branches(
     let repo_root = authorized_repo_root(registry, repo_root, workspace)?;
     ensure_git_available(&repo_root.workspace)?;
 
+    // Tab is a control character — git rejects it in refnames — so it cannot
+    // appear inside any field and is safe as a delimiter even when refs were
+    // written directly to the filesystem.
     let lines = git_stdout_lines(
         &repo_root.workspace,
         &repo_root.git_path,
         [
             "for-each-ref",
-            "--format=%(refname:short)|%(upstream:short)|%(HEAD)",
+            "--format=%(refname:short)\t%(upstream:short)\t%(HEAD)",
             "refs/heads/",
         ],
     )?;
 
     let mut branches = Vec::with_capacity(lines.len());
     for line in lines {
-        let mut parts = line.splitn(3, '|');
+        let mut parts = line.splitn(3, '\t');
         let name = match parts.next() {
             Some(n) if !n.is_empty() => n.to_string(),
             _ => continue,
