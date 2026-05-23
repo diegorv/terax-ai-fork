@@ -28,10 +28,6 @@ import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
 import { useDocument } from "./lib/useDocument";
-import { inlineCompletion } from "./lib/autocomplete/inlineExtension";
-import { getKey } from "@/modules/ai/lib/keyring";
-import { getModel } from "@/modules/ai/config";
-import { onKeysChanged } from "@/modules/settings/store";
 
 export type EditorPaneHandle = {
   setQuery: (q: string) => void;
@@ -70,36 +66,6 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     const editorThemeId = usePreferencesStore((s) => s.editorTheme);
     const vimMode = usePreferencesStore((s) => s.vimMode);
     const languageRef = useRef<string | null>(null);
-    const apiKeyRef = useRef<string | null>(null);
-
-    useEffect(() => {
-      let cancelled = false;
-      const refresh = async () => {
-        const modelId = usePreferencesStore.getState().defaultModelId;
-        const provider = getModel(modelId).provider;
-        if (provider === "ollama") {
-          apiKeyRef.current = null;
-          return;
-        }
-        const k = await getKey(provider);
-        if (!cancelled) apiKeyRef.current = k;
-      };
-      void refresh();
-      let unlistenKeys: (() => void) | undefined;
-      void onKeysChanged(() => void refresh()).then((un) => {
-        unlistenKeys = un;
-      });
-      const unsubPrefs = usePreferencesStore.subscribe((state, prev) => {
-        if (state.defaultModelId !== prev.defaultModelId) {
-          void refresh();
-        }
-      });
-      return () => {
-        cancelled = true;
-        unlistenKeys?.();
-        unsubPrefs();
-      };
-    }, []);
     const themeExt = EDITOR_THEME_EXT[editorThemeId] ?? EDITOR_THEME_EXT.atomone;
 
     // Stabilize save + onSaved via refs so the extensions array never changes
@@ -133,21 +99,6 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         })),
         ...buildSharedExtensions(),
         languageCompartment.of([]),
-        inlineCompletion({
-          getPrefs: () => {
-            const s = usePreferencesStore.getState();
-            const m = getModel(s.defaultModelId);
-            const modelId = m.id === "ollama-local" ? s.ollamaModelId : m.id;
-            return {
-              enabled: s.autocompleteEnabled,
-              provider: m.provider,
-              modelId,
-              apiKey: apiKeyRef.current,
-            };
-          },
-          getPath: () => pathRef.current,
-          getLanguage: () => languageRef.current,
-        }),
         keymap.of([
           {
             key: "Mod-s",
