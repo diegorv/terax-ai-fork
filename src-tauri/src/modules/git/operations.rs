@@ -1037,6 +1037,9 @@ fn is_safe_branch_name(name: &str) -> bool {
     if name.is_empty() || name.len() > 255 {
         return false;
     }
+    if name == "@" {
+        return false;
+    }
     if name.starts_with('-')
         || name.starts_with('/')
         || name.starts_with('.')
@@ -1105,6 +1108,8 @@ mod tests {
         assert!(!is_safe_branch_name("foo//bar"));
         // Reflog selector syntax.
         assert!(!is_safe_branch_name("foo@{0}"));
+        // Bare @ — git check-ref-format rule 9 rejects single @ as refname.
+        assert!(!is_safe_branch_name("@"));
     }
 
     #[test]
