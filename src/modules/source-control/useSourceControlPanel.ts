@@ -511,7 +511,11 @@ export function useSourceControlPanel(
       ipc: () => Promise<void>,
       affected: string[],
     ) => {
-      if (!repo || summary.busyAction) return;
+      // Reject overlapping mutations: a second stage/unstage/discard fired
+      // while another local mutation is in flight would overwrite
+      // `localActionBusy`, race the optimistic state, and risk a second
+      // git invocation colliding on `.git/index.lock`.
+      if (!repo || summary.busyAction || localActionBusy) return;
       setLocalActionBusy(busyKey);
       setActionMessage(null);
       setActionError(null);
@@ -531,7 +535,7 @@ export function useSourceControlPanel(
         setLocalActionBusy(null);
       }
     },
-    [cancelReconcile, repo, scheduleReconcile, summary],
+    [cancelReconcile, localActionBusy, repo, scheduleReconcile, summary],
   );
 
   const stageEntry = useCallback(
@@ -564,14 +568,20 @@ export function useSourceControlPanel(
 
   const requestDiscardEntry = useCallback(
     (entry: SourceControlEntry) => {
-      if (!repo || summary.busyAction) return;
+      if (!repo || summary.busyAction || localActionBusy) return;
       setPendingDiscard({ scope: "single", entry });
     },
-    [repo, summary.busyAction],
+    [localActionBusy, repo, summary.busyAction],
   );
 
   const requestDiscardAll = useCallback(() => {
-    if (!repo || summary.busyAction || unstagedEntries.length === 0) return;
+    if (
+      !repo ||
+      summary.busyAction ||
+      localActionBusy ||
+      unstagedEntries.length === 0
+    )
+      return;
     setPendingDiscard({ scope: "all", entries: unstagedEntries });
   }, [repo, summary.busyAction, unstagedEntries]);
 
@@ -674,7 +684,7 @@ export function useSourceControlPanel(
 
   const requestDiscardFile = useCallback(
     (entry: SourceControlFileEntry) => {
-      if (!repo || summary.busyAction) return;
+      if (!repo || summary.busyAction || localActionBusy) return;
       setPendingDiscard({
         scope: "single",
         entry: {
@@ -690,11 +700,11 @@ export function useSourceControlPanel(
         },
       });
     },
-    [repo, summary.busyAction],
+    [localActionBusy, repo, summary.busyAction],
   );
 
   const commit = useCallback(async () => {
-    if (!repo || summary.busyAction) return;
+    if (!repo || summary.busyAction || localActionBusy) return;
     setLocalActionBusy("commit");
     setActionMessage(null);
     setActionError(null);
@@ -711,7 +721,7 @@ export function useSourceControlPanel(
     } finally {
       setLocalActionBusy(null);
     }
-  }, [commitMessage, repo, summary]);
+  }, [commitMessage, localActionBusy, repo, summary]);
 
   const push = useCallback(async () => {
     if (!repo) return;
