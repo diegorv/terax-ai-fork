@@ -30,6 +30,7 @@ import { resolveLanguage } from "./lib/languageResolver";
 import { useDocument } from "./lib/useDocument";
 import { inlineCompletion } from "./lib/autocomplete/inlineExtension";
 import { getKey } from "@/modules/ai/lib/keyring";
+import { getModel } from "@/modules/ai/config";
 import { onKeysChanged } from "@/modules/settings/store";
 
 export type EditorPaneHandle = {
@@ -74,7 +75,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     useEffect(() => {
       let cancelled = false;
       const refresh = async () => {
-        const provider = usePreferencesStore.getState().autocompleteProvider;
+        const modelId = usePreferencesStore.getState().defaultModelId;
+        const provider = getModel(modelId).provider;
         if (provider === "ollama") {
           apiKeyRef.current = null;
           return;
@@ -88,7 +90,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         unlistenKeys = un;
       });
       const unsubPrefs = usePreferencesStore.subscribe((state, prev) => {
-        if (state.autocompleteProvider !== prev.autocompleteProvider) {
+        if (state.defaultModelId !== prev.defaultModelId) {
           void refresh();
         }
       });
@@ -134,12 +136,11 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         inlineCompletion({
           getPrefs: () => {
             const s = usePreferencesStore.getState();
-            const p = s.autocompleteProvider;
-            const modelId =
-              p === "ollama" ? s.ollamaModelId : s.autocompleteModelId;
+            const m = getModel(s.defaultModelId);
+            const modelId = m.id === "ollama-local" ? s.ollamaModelId : m.id;
             return {
               enabled: s.autocompleteEnabled,
-              provider: p,
+              provider: m.provider,
               modelId,
               apiKey: apiKeyRef.current,
             };

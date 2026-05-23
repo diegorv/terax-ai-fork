@@ -126,17 +126,12 @@ export function buildConfiguredLanguageModel(
 function buildStableSystem(
   modelId: ModelId,
   customInstructions: string | undefined,
-  projectMemory: string | null,
 ): string {
   const base = selectSystemPrompt(getModel(modelId).id);
   const customBlock = customInstructions?.trim()
     ? `\n\n## USER CUSTOM INSTRUCTIONS — follow unless they conflict with safety rules above\n${customInstructions.trim()}`
     : "";
-  const memoryBlock =
-    projectMemory && projectMemory.trim().length > 0
-      ? `\n\n## PROJECT — TERAX.md\n${projectMemory.trim()}`
-      : "";
-  return `${base}${memoryBlock}${customBlock}`;
+  return `${base}${customBlock}`;
 }
 
 // OpenAI / Gemini / DeepSeek apply prefix caching automatically; only
@@ -187,7 +182,6 @@ export type RunAgentOptions = {
   onUsage?: (delta: AgentUsageDelta) => void;
   onFinishMeta?: (info: { hitStepCap: boolean; finishReason: string }) => void;
   ollamaModelId?: string;
-  projectMemory?: string | null;
   uiMessages: UIMessage[];
   abortSignal?: AbortSignal;
 };
@@ -199,11 +193,7 @@ export async function runAgentStream(opts: RunAgentOptions) {
   });
   const provider = getModel(modelId).provider;
 
-  const stableSystem = buildStableSystem(
-    modelId,
-    opts.customInstructions,
-    opts.projectMemory ?? null,
-  );
+  const stableSystem = buildStableSystem(modelId, opts.customInstructions);
 
   const history = await convertToModelMessages(opts.uiMessages);
   const prunedHistory = pruneMessages({

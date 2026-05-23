@@ -13,7 +13,6 @@ import {
   MODELS,
   PROVIDERS,
   getModel,
-  getProvider,
   providerNeedsKey,
   type ModelId,
   type ProviderId,
@@ -24,8 +23,6 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   emitKeysChanged,
   setAutocompleteEnabled,
-  setAutocompleteModelId,
-  setAutocompleteProvider,
   setDefaultModel,
   setOllamaModelId,
 } from "@/modules/settings/store";
@@ -37,7 +34,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -133,7 +130,7 @@ function DefaultsBlock({
             configuredIds={configuredIds}
           />
         </FieldRow>
-        <AutocompleteRow configuredIds={configuredIds} />
+        <AutocompleteRow />
       </div>
     </div>
   );
@@ -213,28 +210,8 @@ function DefaultModelPicker({
   );
 }
 
-function AutocompleteRow({
-  configuredIds,
-}: {
-  configuredIds: Set<ProviderId>;
-}) {
+function AutocompleteRow() {
   const enabled = usePreferencesStore((s) => s.autocompleteEnabled);
-  const provider = usePreferencesStore((s) => s.autocompleteProvider);
-  const modelId = usePreferencesStore((s) => s.autocompleteModelId);
-
-  const currentModel = useMemo(() => {
-    return (
-      MODELS.find((m) => m.provider === provider && m.id === modelId) ??
-      MODELS.find((m) => m.provider === provider) ??
-      MODELS[0]
-    );
-  }, [provider, modelId]);
-
-  const setModel = (id: string, providerId: ProviderId) => {
-    void setAutocompleteProvider(providerId);
-    void setAutocompleteModelId(providerId === "ollama" ? "" : id);
-  };
-
   return (
     <FieldRow label="Autocomplete">
       <div className="flex flex-1 items-center gap-2">
@@ -242,71 +219,9 @@ function AutocompleteRow({
           checked={enabled}
           onCheckedChange={(v) => void setAutocompleteEnabled(v)}
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              disabled={!enabled}
-              className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
-            >
-              <span className="flex items-center gap-2 truncate">
-                <ProviderIcon provider={currentModel.provider} size={12} />
-                <span className="truncate">{currentModel.label}</span>
-                <span className="text-muted-foreground">
-                  · {currentModel.hint}
-                </span>
-              </span>
-              <HugeiconsIcon
-                icon={ArrowDown01Icon}
-                size={11}
-                strokeWidth={2}
-                className="opacity-70"
-              />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            collisionPadding={12}
-            className="max-h-72 min-w-70 overflow-y-auto"
-          >
-            {PROVIDERS.map((p) => {
-              const list = MODELS.filter((m) => m.provider === p.id);
-              if (list.length === 0) return null;
-              const pConfigured = configuredIds.has(p.id);
-              return (
-                <div key={p.id} className="px-1 pt-1.5 first:pt-1">
-                  <div className="mb-0.5 flex items-center gap-1.5 px-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                    <ProviderIcon provider={p.id} size={11} />
-                    <span>{getProvider(p.id).label}</span>
-                    {!pConfigured ? (
-                      <span className="ml-auto text-[9.5px] normal-case tracking-normal text-muted-foreground/70">
-                        not connected
-                      </span>
-                    ) : null}
-                  </div>
-                  {list.map((m) => (
-                    <DropdownMenuItem
-                      key={m.id}
-                      disabled={!pConfigured}
-                      onSelect={() => pConfigured && setModel(m.id, p.id)}
-                      className={cn(
-                        "text-[11.5px]",
-                        m.id === modelId && "bg-accent/50",
-                      )}
-                    >
-                      <span className="flex flex-col">
-                        <span>{m.label}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {m.description}
-                        </span>
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <span className="text-[10.5px] text-muted-foreground">
+          Inline edits use the chat model.
+        </span>
       </div>
     </FieldRow>
   );

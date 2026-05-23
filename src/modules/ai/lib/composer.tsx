@@ -6,9 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { expandSnippetTokens, type Snippet } from "../lib/snippets";
 import { getOrCreateChat, useChatStore } from "../store/chatStore";
-import { useSnippetsStore } from "../store/snippetsStore";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 
 export type FileAttachment = {
@@ -40,9 +38,6 @@ type ComposerCtx = {
   /** Attach a file by absolute path — used by the file explorer's "Attach to Agent". */
   attachFileByPath: (path: string) => Promise<void>;
   removeFile: (id: string) => void;
-  pickedSnippets: Snippet[];
-  addSnippet: (s: Snippet) => void;
-  removeSnippet: (id: string) => void;
   isBusy: boolean;
   submit: () => void;
   stop: () => void;
@@ -69,7 +64,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
 
   const [value, setValue] = useState("");
   const [files, setFiles] = useState<FileAttachment[]>([]);
-  const [pickedSnippets, setPickedSnippets] = useState<Snippet[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const focusSignal = useChatStore((s) => s.focusSignal);
@@ -87,7 +81,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
     }
   }, [focusSignal, pendingPrefill, consumePrefill]);
 
-  // Re-focus the textarea whenever the agent finishes a response
   const prevIsBusyRef = useRef(false);
   useEffect(() => {
     if (prevIsBusyRef.current && !isBusy) {
@@ -96,7 +89,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
     prevIsBusyRef.current = isBusy;
   }, [isBusy, textareaRef]);
 
-  // Listen for explorer's "Attach to Agent" event.
   useEffect(() => {
     const onAttach = (e: Event) => {
       const path = (e as CustomEvent<string>).detail;
@@ -106,7 +98,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
     };
     window.addEventListener("terax:ai-attach-file", onAttach);
     return () => window.removeEventListener("terax:ai-attach-file", onAttach);
-    // attachFileByPath is stable for our purposes (closes over setFiles only)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -149,13 +140,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
   const removeFile = (id: string) =>
     setFiles((prev) => prev.filter((f) => f.id !== id));
 
-  const addSnippet = (s: Snippet) =>
-    setPickedSnippets((prev) =>
-      prev.some((p) => p.id === s.id) ? prev : [...prev, s],
-    );
-  const removeSnippet = (id: string) =>
-    setPickedSnippets((prev) => prev.filter((s) => s.id !== id));
-
   const attachFileByPath = async (path: string) => {
     try {
       type ReadResult =
@@ -167,7 +151,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
         workspace: currentWorkspaceEnv(),
       });
       if (result.kind !== "text") {
-        // Binary/oversize files: skip (could surface a toast in future).
         console.warn("attachFileByPath: skipped non-text file", path, result);
         return;
       }
@@ -185,7 +168,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
         };
         return [...prev, att];
       });
-      // Open the AI panel & focus the input so the user sees the chip.
       useChatStore.getState().focusInput();
     } catch (e) {
       console.error("attachFileByPath failed:", e);
@@ -195,7 +177,7 @@ export function AiComposerProvider({ children }: ProviderProps) {
   const submit = () => {
     if (isBusy) return;
     const trimmed = value.trim();
-    if (!trimmed && files.length === 0 && pickedSnippets.length === 0) return;
+    if (!trimmed && files.length === 0) return;
 
     const parts: MessagePart[] = [];
     const fileBlocks = files
@@ -210,30 +192,10 @@ export function AiComposerProvider({ children }: ProviderProps) {
         (f) =>
           `<selection source="${f.source ?? "terminal"}">\n${f.text ?? ""}\n</selection>`,
       );
-    const { body: bodyAfterTokens, blocks: snippetBlocks } = expandSnippetTokens(
-      trimmed,
-      useSnippetsStore.getState().snippets,
-    );
-    const seenHandles = new Set<string>();
-    const allSnippetBlocks: string[] = [];
-    for (const s of pickedSnippets) {
-      if (seenHandles.has(s.handle)) continue;
-      seenHandles.add(s.handle);
-      allSnippetBlocks.push(
-        `<snippet name="${s.handle}">\n${s.content}\n</snippet>`,
-      );
-    }
-    for (const block of snippetBlocks) {
-      const m = block.match(/^<snippet name="([^"]+)"/);
-      if (m && seenHandles.has(m[1])) continue;
-      if (m) seenHandles.add(m[1]);
-      allSnippetBlocks.push(block);
-    }
     const composed = [
-      allSnippetBlocks.join("\n\n"),
       selectionBlocks.join("\n\n"),
       fileBlocks.join("\n\n"),
-      bodyAfterTokens,
+      trimmed,
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -260,8 +222,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
     if (!store.mini.open) store.openMini();
     setValue("");
     setFiles([]);
-    setPickedSnippets([]);
-    // Re-focus immediately after submit so the user can type a follow-up
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
@@ -271,10 +231,7 @@ export function AiComposerProvider({ children }: ProviderProps) {
   };
 
   const canSend =
-    !isBusy &&
-    (value.trim().length > 0 ||
-      files.length > 0 ||
-      pickedSnippets.length > 0);
+    !isBusy && (value.trim().length > 0 || files.length > 0);
 
   const ctx: ComposerCtx = {
     textareaRef,
@@ -284,9 +241,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
     addFiles,
     attachFileByPath,
     removeFile,
-    pickedSnippets,
-    addSnippet,
-    removeSnippet,
     isBusy,
     submit,
     stop,

@@ -28,7 +28,6 @@ import {
 import { AiComposerProvider } from "@/modules/ai/lib/composer";
 import { redactSensitive } from "@/modules/ai/lib/redact";
 import { native } from "@/modules/ai/lib/native";
-import { useSnippetsStore } from "@/modules/ai/store/snippetsStore";
 import {
   AiDiffStack,
   EditorStack,
@@ -414,7 +413,6 @@ export default function App() {
   const hydrateSessions = useChatStore((s) => s.hydrateSessions);
   useEffect(() => {
     void hydrateSessions();
-    void useSnippetsStore.getState().hydrate();
   }, [hydrateSessions]);
 
   const activeTab = tabs.find((t) => t.id === activeId);

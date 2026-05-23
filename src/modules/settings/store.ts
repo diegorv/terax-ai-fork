@@ -1,9 +1,4 @@
-import {
-  DEFAULT_AUTOCOMPLETE_MODEL,
-  DEFAULT_MODEL_ID,
-  type AutocompleteProviderId,
-  type ModelId,
-} from "@/modules/ai/config";
+import { DEFAULT_MODEL_ID, type ModelId } from "@/modules/ai/config";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
@@ -55,8 +50,6 @@ export type Preferences = {
   autostart: boolean;
   restoreWindowState: boolean;
   autocompleteEnabled: boolean;
-  autocompleteProvider: AutocompleteProviderId;
-  autocompleteModelId: string;
   ollamaModelId: string;
   favoriteModelIds: string[];
   recentModelIds: string[];
@@ -85,8 +78,6 @@ const KEY_CUSTOM_INSTRUCTIONS = "customInstructions";
 const KEY_AUTOSTART = "autostart";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
 const KEY_AUTOCOMPLETE_ENABLED = "autocompleteEnabled";
-const KEY_AUTOCOMPLETE_PROVIDER = "autocompleteProvider";
-const KEY_AUTOCOMPLETE_MODEL = "autocompleteModelId";
 const KEY_OLLAMA_MODEL_ID = "ollamaModelId";
 const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
@@ -130,8 +121,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autostart: false,
   restoreWindowState: true,
   autocompleteEnabled: false,
-  autocompleteProvider: "openai",
-  autocompleteModelId: DEFAULT_AUTOCOMPLETE_MODEL.openai,
   ollamaModelId: "",
   favoriteModelIds: [],
   recentModelIds: [],
@@ -195,12 +184,6 @@ export async function loadPreferences(): Promise<Preferences> {
     autocompleteEnabled:
       get<boolean>(KEY_AUTOCOMPLETE_ENABLED) ??
       DEFAULT_PREFERENCES.autocompleteEnabled,
-    autocompleteProvider:
-      get<AutocompleteProviderId>(KEY_AUTOCOMPLETE_PROVIDER) ??
-      DEFAULT_PREFERENCES.autocompleteProvider,
-    autocompleteModelId:
-      get<string>(KEY_AUTOCOMPLETE_MODEL) ??
-      DEFAULT_PREFERENCES.autocompleteModelId,
     ollamaModelId:
       get<string>(KEY_OLLAMA_MODEL_ID) ?? DEFAULT_PREFERENCES.ollamaModelId,
     favoriteModelIds:
@@ -302,16 +285,6 @@ export async function setAutocompleteEnabled(value: boolean): Promise<void> {
   await writePref(KEY_AUTOCOMPLETE_ENABLED, value);
 }
 
-export async function setAutocompleteProvider(
-  value: AutocompleteProviderId,
-): Promise<void> {
-  await writePref(KEY_AUTOCOMPLETE_PROVIDER, value);
-}
-
-export async function setAutocompleteModelId(value: string): Promise<void> {
-  await writePref(KEY_AUTOCOMPLETE_MODEL, value);
-}
-
 export async function setOllamaModelId(value: string): Promise<void> {
   await writePref(KEY_OLLAMA_MODEL_ID, value);
 }
@@ -404,8 +377,6 @@ export async function onPreferencesChange(
     [KEY_AUTOSTART]: "autostart",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
     [KEY_AUTOCOMPLETE_ENABLED]: "autocompleteEnabled",
-    [KEY_AUTOCOMPLETE_PROVIDER]: "autocompleteProvider",
-    [KEY_AUTOCOMPLETE_MODEL]: "autocompleteModelId",
     [KEY_OLLAMA_MODEL_ID]: "ollamaModelId",
     [KEY_FAVORITE_MODELS]: "favoriteModelIds",
     [KEY_RECENT_MODELS]: "recentModelIds",
