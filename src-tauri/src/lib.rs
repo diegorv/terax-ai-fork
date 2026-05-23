@@ -1,6 +1,6 @@
 mod modules;
 
-use modules::{claude_code, fonts, fs, git, net, pty, secrets, shell, workspace};
+use modules::{fonts, fs, git, net, pty, secrets, shell, workspace};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_window_state::StateFlags;
@@ -111,7 +111,6 @@ pub fn run() {
         .manage(pty::PtyState::default())
         .manage(shell::ShellState::default())
         .manage(secrets::SecretsState::default())
-        .manage(claude_code::ClaudeCodeState::default())
         .manage({
             let registry = workspace::WorkspaceRegistry::default();
             workspace::bootstrap_registry(&registry);
@@ -157,6 +156,8 @@ pub fn run() {
             git::commands::git_commit_files,
             git::commands::git_commit_file_diff,
             git::commands::git_remote_url,
+            git::commands::git_list_branches,
+            git::commands::git_checkout,
             shell::shell_run_command,
             shell::shell_session_open,
             shell::shell_session_run,
@@ -180,10 +181,6 @@ pub fn run() {
             net::ai_http_request,
             net::ai_http_stream,
             fonts::fonts_list_system,
-            claude_code::claude_code_check,
-            claude_code::claude_code_send,
-            claude_code::claude_code_cancel,
-            claude_code::claude_code_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

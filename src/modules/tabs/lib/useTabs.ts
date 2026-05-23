@@ -48,29 +48,6 @@ export type PreviewTab = {
   url: string;
 };
 
-export type MarkdownTab = {
-  id: number;
-  kind: "markdown";
-  title: string;
-  path: string;
-};
-
-export type AiDiffStatus = "pending" | "approved" | "rejected";
-
-export type AiDiffTab = {
-  id: number;
-  kind: "ai-diff";
-  title: string;
-  path: string;
-  /** "" for newly created files. */
-  originalContent: string;
-  proposedContent: string;
-  /** Tool-call approval id used to resolve the AI SDK approval. */
-  approvalId: string;
-  status: AiDiffStatus;
-  isNewFile: boolean;
-};
-
 export type GitDiffTab = {
   id: number;
   kind: "git-diff";
@@ -79,13 +56,6 @@ export type GitDiffTab = {
   repoRoot: string;
   mode: "-" | "+";
   originalPath: string | null;
-};
-
-export type GitHistoryTab = {
-  id: number;
-  kind: "git-history";
-  title: string;
-  repoRoot: string;
 };
 
 export type GitCommitFileDiffTab = {
@@ -104,10 +74,7 @@ export type Tab =
   | TerminalTab
   | EditorTab
   | PreviewTab
-  | MarkdownTab
-  | AiDiffTab
   | GitDiffTab
-  | GitHistoryTab
   | GitCommitFileDiffTab;
 
 export type TabPatch = Partial<{
@@ -287,82 +254,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     );
   }, []);
 
-  const openAiDiffTab = useCallback(
-    (input: {
-      path: string;
-      originalContent: string;
-      proposedContent: string;
-      approvalId: string;
-      isNewFile: boolean;
-    }) => {
-      let targetId: number | null = null;
-      setTabs((curr) => {
-        const existing = curr.find(
-          (t) => t.kind === "ai-diff" && t.approvalId === input.approvalId,
-        );
-        if (existing) {
-          targetId = existing.id;
-          return curr;
-        }
-        const id = nextIdRef.current++;
-        targetId = id;
-        const title = `${basename(input.path)} (AI diff)`;
-        return [
-          ...curr,
-          {
-            id,
-            kind: "ai-diff",
-            title,
-            path: input.path,
-            originalContent: input.originalContent,
-            proposedContent: input.proposedContent,
-            approvalId: input.approvalId,
-            status: "pending",
-            isNewFile: input.isNewFile,
-          },
-        ];
-      });
-      if (targetId !== null) setActiveId(targetId);
-      return targetId as number | null;
-    },
-    [],
-  );
-
-  const setAiDiffStatus = useCallback(
-    (approvalId: string, status: AiDiffStatus) => {
-      setTabs((curr) =>
-        curr.map((t) =>
-          t.kind === "ai-diff" && t.approvalId === approvalId
-            ? { ...t, status }
-            : t,
-        ),
-      );
-    },
-    [],
-  );
-
-  const closeAiDiffTab = useCallback((approvalId: string) => {
-    setTabs((curr) => {
-      const target = curr.find(
-        (t) => t.kind === "ai-diff" && t.approvalId === approvalId,
-      );
-      if (!target || curr.length <= 1) {
-        if (!target) return curr;
-        return curr.map((t) =>
-          t.kind === "ai-diff" && t.approvalId === approvalId
-            ? { ...t, status: "approved" as AiDiffStatus }
-            : t,
-        );
-      }
-      const idx = curr.findIndex((t) => t.id === target.id);
-      const next = curr.filter((t) => t.id !== target.id);
-      setActiveId((active) =>
-        target.id === active ? next[Math.max(0, idx - 1)].id : active,
-      );
-      return next;
-    });
-  }, []);
-
   const newPreviewTab = useCallback((url: string) => {
     const id = nextIdRef.current++;
     setTabs((t) => [
@@ -371,24 +262,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     ]);
     setActiveId(id);
     return id;
-  }, []);
-
-  const newMarkdownTab = useCallback((path: string) => {
-    let targetId: number | null = null;
-    setTabs((curr) => {
-      const existing = curr.find(
-        (t) => t.kind === "markdown" && t.path === path,
-      );
-      if (existing) {
-        targetId = existing.id;
-        return curr;
-      }
-      const id = nextIdRef.current++;
-      targetId = id;
-      return [...curr, { id, kind: "markdown", title: basename(path), path }];
-    });
-    if (targetId !== null) setActiveId(targetId);
-    return targetId;
   }, []);
 
   const openGitDiffTab = useCallback(
@@ -435,42 +308,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           mode: input.mode,
           originalPath,
         } satisfies GitDiffTab,
-      ];
-      tabsRef.current = nextTabs;
-      setTabs(nextTabs);
-      setActiveId(id);
-      return id;
-    },
-    [],
-  );
-
-  const openCommitHistoryTab = useCallback(
-    (input: { repoRoot: string; branch?: string | null }) => {
-      const curr = tabsRef.current;
-      const existing = curr.find(
-        (t) => t.kind === "git-history" && t.repoRoot === input.repoRoot,
-      );
-      const title = input.branch
-        ? `History · ${input.branch}`
-        : "Git History";
-      if (existing) {
-        const nextTabs = curr.map((t) =>
-          t.id === existing.id ? { ...t, title } : t,
-        );
-        tabsRef.current = nextTabs;
-        setTabs(nextTabs);
-        setActiveId(existing.id);
-        return existing.id;
-      }
-      const id = nextIdRef.current++;
-      const nextTabs = [
-        ...curr,
-        {
-          id,
-          kind: "git-history",
-          title,
-          repoRoot: input.repoRoot,
-        } satisfies GitHistoryTab,
       ];
       tabsRef.current = nextTabs;
       setTabs(nextTabs);
@@ -574,12 +411,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
               url: patch.url,
               title: patch.title ?? titleFromUrl(patch.url),
             }),
-          };
-        }
-        if (x.kind === "markdown") {
-          return {
-            ...x,
-            ...(patch.title !== undefined && { title: patch.title }),
           };
         }
         // editor tab: auto-promote from preview the moment the file becomes dirty.
@@ -782,13 +613,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     openFileTab,
     pinTab,
     newPreviewTab,
-    newMarkdownTab,
-    openAiDiffTab,
     openGitDiffTab,
-    openCommitHistoryTab,
     openCommitFileDiffTab,
-    setAiDiffStatus,
-    closeAiDiffTab,
     closeTab,
     updateTab,
     selectByIndex,
