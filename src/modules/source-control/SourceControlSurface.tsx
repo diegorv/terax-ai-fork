@@ -208,6 +208,16 @@ export const SourceControlSurface = memo(function SourceControlSurface({
             label={fetchedLabel}
             onClick={canFetch ? handleFetch : undefined}
             disabled={!canFetch}
+            trailing={
+              canPull || pullBusy ? (
+                <PullPill
+                  busy={pullBusy}
+                  count={scm.status?.behind ?? 0}
+                  disabled={!canPull}
+                  onClick={handlePull}
+                />
+              ) : null
+            }
           />
         </header>
 
@@ -226,31 +236,6 @@ export const SourceControlSurface = memo(function SourceControlSurface({
             History
           </TabButton>
           <div className="ml-auto flex items-center gap-0.5 px-1.5">
-            <IconActionButton
-              label={
-                pullBusy
-                  ? "Pulling…"
-                  : isDiverged
-                    ? "Branch diverged — resolve in terminal"
-                    : !hasUpstream
-                      ? "No upstream configured"
-                      : (scm.status?.behind ?? 0) === 0
-                        ? "Already up to date"
-                        : `Pull ${scm.status?.behind ?? 0} commits (fast-forward)`
-              }
-              disabled={!canPull}
-              onClick={handlePull}
-            >
-              {pullBusy ? (
-                <Spinner className="size-3" />
-              ) : (
-                <HugeiconsIcon
-                  icon={Download01Icon}
-                  size={13}
-                  strokeWidth={1.9}
-                />
-              )}
-            </IconActionButton>
             <IconActionButton
               label="Refresh source control"
               disabled={isRefreshing || !!scm.actionBusy}
@@ -362,6 +347,58 @@ function Segment({
       </div>
       {trailing}
     </Tag>
+  );
+}
+
+function PullPill({
+  busy,
+  count,
+  disabled,
+  onClick,
+}: {
+  busy: boolean;
+  count: number;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClick();
+          }}
+          className={cn(
+            "ml-1 inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground transition-colors",
+            disabled
+              ? "cursor-not-allowed opacity-60"
+              : "cursor-pointer hover:bg-foreground/[0.08] hover:text-foreground",
+          )}
+        >
+          {busy ? (
+            <Spinner className="size-2.5" />
+          ) : (
+            <HugeiconsIcon
+              icon={Download01Icon}
+              size={10}
+              strokeWidth={2.1}
+            />
+          )}
+          <span>{busy ? "Pulling" : `Pull ${count}`}</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        className={cn(SOURCE_CONTROL_TOOLTIP_CLASS, "text-[10.5px]")}
+      >
+        {busy
+          ? "Pulling…"
+          : `Pull ${count} ${count === 1 ? "commit" : "commits"} (fast-forward)`}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
