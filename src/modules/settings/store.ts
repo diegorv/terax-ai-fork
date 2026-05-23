@@ -202,12 +202,14 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalFontFamily:
       get<string>(KEY_TERMINAL_FONT_FAMILY) ??
       DEFAULT_PREFERENCES.terminalFontFamily,
-    terminalLetterSpacing:
+    terminalLetterSpacing: clampTerminalLetterSpacing(
       get<number>(KEY_TERMINAL_LETTER_SPACING) ??
-      DEFAULT_PREFERENCES.terminalLetterSpacing,
-    terminalFontSize:
+        DEFAULT_PREFERENCES.terminalLetterSpacing,
+    ),
+    terminalFontSize: clampTerminalFontSize(
       get<number>(KEY_TERMINAL_FONT_SIZE) ??
-      DEFAULT_PREFERENCES.terminalFontSize,
+        DEFAULT_PREFERENCES.terminalFontSize,
+    ),
     terminalFontWeight: clampFontWeight(
       get<number>(KEY_TERMINAL_FONT_WEIGHT) ??
         DEFAULT_PREFERENCES.terminalFontWeight,
@@ -215,9 +217,10 @@ export async function loadPreferences(): Promise<Preferences> {
     editorFontFamily:
       get<string>(KEY_EDITOR_FONT_FAMILY) ??
       DEFAULT_PREFERENCES.editorFontFamily,
-    editorFontSize:
+    editorFontSize: clampEditorFontSize(
       get<number>(KEY_EDITOR_FONT_SIZE) ??
-      DEFAULT_PREFERENCES.editorFontSize,
+        DEFAULT_PREFERENCES.editorFontSize,
+    ),
     editorFontWeight: clampFontWeight(
       get<number>(KEY_EDITOR_FONT_WEIGHT) ??
         DEFAULT_PREFERENCES.editorFontWeight,
@@ -316,10 +319,7 @@ export async function setTerminalFontWeight(value: number): Promise<void> {
 }
 
 export async function setTerminalLetterSpacing(value: number): Promise<void> {
-  const clamped = Number.isFinite(value)
-    ? Math.max(-10, Math.min(10, Math.round(value)))
-    : 0;
-  await writePref(KEY_TERMINAL_LETTER_SPACING, clamped);
+  await writePref(KEY_TERMINAL_LETTER_SPACING, clampTerminalLetterSpacing(value));
 }
 
 export async function setEditorFontFamily(value: string): Promise<void> {
@@ -327,13 +327,7 @@ export async function setEditorFontFamily(value: string): Promise<void> {
 }
 
 export async function setEditorFontSize(value: number): Promise<void> {
-  const clamped = Number.isFinite(value)
-    ? Math.min(
-        EDITOR_FONT_SIZE_MAX,
-        Math.max(EDITOR_FONT_SIZE_MIN, Math.round(value)),
-      )
-    : EDITOR_FONT_SIZE_DEFAULT;
-  await writePref(KEY_EDITOR_FONT_SIZE, clamped);
+  await writePref(KEY_EDITOR_FONT_SIZE, clampEditorFontSize(value));
 }
 
 export async function setEditorFontWeight(value: number): Promise<void> {
@@ -341,13 +335,7 @@ export async function setEditorFontWeight(value: number): Promise<void> {
 }
 
 export async function setTerminalFontSize(value: number): Promise<void> {
-  const clamped = Number.isFinite(value)
-    ? Math.min(
-        TERMINAL_FONT_SIZE_MAX,
-        Math.max(TERMINAL_FONT_SIZE_MIN, Math.round(value)),
-      )
-    : TERMINAL_FONT_SIZE_DEFAULT;
-  await writePref(KEY_TERMINAL_FONT_SIZE, clamped);
+  await writePref(KEY_TERMINAL_FONT_SIZE, clampTerminalFontSize(value));
 }
 
 function clampScrollback(value: number): number {
@@ -356,6 +344,27 @@ function clampScrollback(value: number): number {
     TERMINAL_SCROLLBACK_MAX,
     Math.max(TERMINAL_SCROLLBACK_MIN, Math.round(value)),
   );
+}
+
+export function clampTerminalFontSize(value: number): number {
+  if (!Number.isFinite(value)) return TERMINAL_FONT_SIZE_DEFAULT;
+  return Math.min(
+    TERMINAL_FONT_SIZE_MAX,
+    Math.max(TERMINAL_FONT_SIZE_MIN, Math.round(value)),
+  );
+}
+
+export function clampEditorFontSize(value: number): number {
+  if (!Number.isFinite(value)) return EDITOR_FONT_SIZE_DEFAULT;
+  return Math.min(
+    EDITOR_FONT_SIZE_MAX,
+    Math.max(EDITOR_FONT_SIZE_MIN, Math.round(value)),
+  );
+}
+
+export function clampTerminalLetterSpacing(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(-10, Math.min(10, Math.round(value)));
 }
 
 export async function setTerminalScrollback(value: number): Promise<void> {
