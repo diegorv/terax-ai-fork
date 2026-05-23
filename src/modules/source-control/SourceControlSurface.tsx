@@ -74,6 +74,9 @@ export const SourceControlSurface = memo(function SourceControlSurface({
   const scm = useSourceControlPanel(open, sourceControl, onOpenDiff);
   const [activeTab, setActiveTab] = useState<SurfaceTab>(readActiveTab);
   const [refreshAnimating, setRefreshAnimating] = useState(false);
+  // Bumped after a successful branch checkout so HistoryPane refetches
+  // commits against the new HEAD even though `repoRoot` stays the same.
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const refreshAnimationRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -170,7 +173,10 @@ export const SourceControlSurface = memo(function SourceControlSurface({
             ahead={scm.status?.ahead ?? 0}
             behind={scm.status?.behind ?? 0}
             busy={!!scm.actionBusy || !!sourceControl.busyAction}
-            onCheckedOut={() => sourceControl.refresh({ remote: "never" })}
+            onCheckedOut={() => {
+              setHistoryRefresh((n) => n + 1);
+              sourceControl.refresh({ remote: "never" });
+            }}
           />
           <Segment
             icon={
@@ -277,6 +283,7 @@ export const SourceControlSurface = memo(function SourceControlSurface({
               <HistoryPane
                 repoRoot={scm.repo?.repoRoot ?? null}
                 onOpenCommitFile={onOpenCommitFile}
+                refreshSignal={historyRefresh}
               />
             </div>
           </>

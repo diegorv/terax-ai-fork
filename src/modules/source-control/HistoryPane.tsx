@@ -65,6 +65,10 @@ type FilesEntry =
 type Props = {
   repoRoot: string | null;
   onOpenCommitFile: (input: CommitFileDiffOpenInput) => void;
+  // Bumped by the parent when something outside this pane (e.g. a branch
+  // checkout) changes HEAD, so we know to refetch even though `repoRoot`
+  // stays the same.
+  refreshSignal?: number;
 };
 
 function normalizeError(error: unknown): string {
@@ -116,6 +120,7 @@ function highlight(text: string, query: string): ReactNode {
 export const HistoryPane = memo(function HistoryPane({
   repoRoot,
   onOpenCommitFile,
+  refreshSignal = 0,
 }: Props) {
   const [commits, setCommits] = useState<GitLogEntry[]>([]);
   const [loadStatus, setLoadStatus] = useState<LoadStatus>("idle");
@@ -247,7 +252,7 @@ export const HistoryPane = memo(function HistoryPane({
     setSelectedSha(null);
     bumpFiles();
     void loadInitial();
-  }, [loadInitial, bumpFiles]);
+  }, [loadInitial, bumpFiles, refreshSignal]);
 
   useEffect(() => {
     if (!repoRoot) {
