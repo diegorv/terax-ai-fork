@@ -125,7 +125,6 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
         if (forward) target.handle.findNext();
         else target.handle.findPrevious();
       }
-      // git-history: the list filters live; Enter has no next/prev semantics.
     };
 
     return (
