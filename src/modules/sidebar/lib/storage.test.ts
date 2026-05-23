@@ -86,6 +86,25 @@ describe("readSidebarWidth", () => {
     expect(snapshot["terax.sidebar.width"]).toBeUndefined();
   });
 
+  it("still returns the migrated width when removeItem throws", () => {
+    const map = new Map<string, string>([["terax.sidebar.width", "350"]]);
+    const flaky: StorageLike = {
+      getItem: (k) => (map.has(k) ? (map.get(k) ?? null) : null),
+      setItem: (k, v) => {
+        map.set(k, v);
+      },
+      removeItem: () => {
+        throw new Error("storage locked");
+      },
+    };
+    expect(readSidebarWidth("explorer", flaky)).toBe(350);
+    // Migration target was written even though cleanup failed.
+    expect(map.get("terax.sidebar.width.files")).toBe("350");
+    // Legacy key survives (cleanup threw), but next read prefers the
+    // per-view key so the migration stays idempotent.
+    expect(map.get("terax.sidebar.width")).toBe("350");
+  });
+
   it("does not migrate the legacy key into the source-control slot", () => {
     storage = memoryStorage({ "terax.sidebar.width": "350" });
     expect(readSidebarWidth("source-control", storage)).toBe(

@@ -46,7 +46,15 @@ export function readSidebarWidth(
     const width = clampSidebarWidth(legacyParsed);
     if (view === "explorer") {
       storage.setItem(sidebarWidthKey(view), String(width));
-      storage.removeItem(LEGACY_SIDEBAR_WIDTH_KEY);
+      // Cleanup of the legacy key is best-effort: if `removeItem` throws
+      // (e.g. quota glitches, locked storage), the migrated value has
+      // already been persisted by the `setItem` above. Re-runs are
+      // idempotent — the per-view key now wins on the next read.
+      try {
+        storage.removeItem(LEGACY_SIDEBAR_WIDTH_KEY);
+      } catch {
+        /* ignore */
+      }
       return width;
     }
   }
