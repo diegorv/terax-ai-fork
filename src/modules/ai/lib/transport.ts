@@ -49,9 +49,7 @@ type Deps = {
   getOllamaModelId?: () => string | undefined;
   onStep?: (step: string | null) => void;
   onUsage?: (delta: AgentUsageDelta) => void;
-  onCompact?: (info: { droppedCount: number }) => void;
   onFinishMeta?: (info: { hitStepCap: boolean; finishReason: string }) => void;
-  getPlanMode?: () => boolean;
 };
 
 type SendOptions = {
@@ -76,10 +74,8 @@ export function createContextAwareTransport(deps: Deps) {
       toolContext: deps.toolContext,
       onStep: deps.onStep,
       onUsage: deps.onUsage,
-      onCompact: deps.onCompact,
       onFinishMeta: deps.onFinishMeta,
       ollamaModelId: deps.getOllamaModelId?.(),
-      planMode: deps.getPlanMode?.(),
       projectMemory,
       uiMessages: messagesForRun,
       abortSignal: options.abortSignal,

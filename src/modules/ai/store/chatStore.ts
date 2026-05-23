@@ -14,7 +14,6 @@ import {
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { BUILTIN_AGENTS } from "../lib/agents";
 import { useAgentsStore } from "./agentsStore";
-import { usePlanStore } from "./planStore";
 import type { AgentUsage } from "../lib/agent";
 import { EMPTY_PROVIDER_KEYS, type ProviderKeys } from "../lib/keyring";
 import {
@@ -58,7 +57,6 @@ export type AgentMeta = {
   lastInputTokens: number;
   lastCachedTokens: number;
   hitStepCap: boolean;
-  compactionNotice: { droppedCount: number; at: number } | null;
 };
 
 const ZERO_USAGE: AgentUsage = {
@@ -76,7 +74,6 @@ const IDLE_META: AgentMeta = {
   lastInputTokens: 0,
   lastCachedTokens: 0,
   hitStepCap: false,
-  compactionNotice: null,
 };
 
 export type MiniState = {
@@ -239,15 +236,9 @@ function makeChat(sessionId: string): Chat<UIMessage> {
         activeFile: live.getActiveFile(),
       };
     },
-    getPlanMode: () => usePlanStore.getState().active,
     getOllamaModelId: () => usePreferencesStore.getState().ollamaModelId,
     onStep: (step) => {
       useChatStore.getState().patchAgentMeta({ step });
-    },
-    onCompact: (info) => {
-      useChatStore.getState().patchAgentMeta({
-        compactionNotice: { droppedCount: info.droppedCount, at: Date.now() },
-      });
     },
     onFinishMeta: (info) => {
       useChatStore.getState().patchAgentMeta({ hitStepCap: info.hitStepCap });

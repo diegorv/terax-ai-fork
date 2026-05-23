@@ -13,7 +13,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { useComposer, type FileAttachment } from "../lib/composer";
 import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
-import { SLASH_COMMANDS } from "../lib/slashCommands";
 import type { Snippet } from "../lib/snippets";
 import { useChatStore } from "../store/chatStore";
 import { useSnippetsStore } from "../store/snippetsStore";
@@ -111,12 +110,7 @@ export function AiInputBar() {
   const filteredItems = useMemo<PickerItem[]>(() => {
     if (!trigger) return [];
     const q = trigger.query;
-    const cmdItems: PickerItem[] = Object.values(SLASH_COMMANDS)
-      .filter(
-        (c) => !q || c.name.includes(q) || c.label.toLowerCase().includes(q),
-      )
-      .map((command) => ({ kind: "command", command }));
-    const snipItems: PickerItem[] = snippets
+    return snippets
       .filter(
         (s) =>
           !q ||
@@ -125,7 +119,6 @@ export function AiInputBar() {
           s.description.toLowerCase().includes(q),
       )
       .map((snippet) => ({ kind: "snippet", snippet }));
-    return [...cmdItems, ...snipItems];
   }, [trigger, snippets]);
 
   const FILE_PICKER_CAP = 30;
@@ -154,17 +147,10 @@ export function AiInputBar() {
   const onPickItem = (item: PickerItem) => {
     if (!trigger) return;
     const before = c.value.slice(0, trigger.start);
-    const afterRaw = c.value.slice(trigger.end);
-    let insert = "";
-    if (item.kind === "snippet") {
-      const needsSpace = afterRaw.length === 0 || !/^\s/.test(afterRaw);
-      insert = `#${item.snippet.handle}${needsSpace ? " " : ""}`;
-      c.addSnippet(item.snippet);
-    } else {
-      c.addCommand(item.command);
-    }
-    const after =
-      item.kind === "command" ? afterRaw.replace(/^\s+/, "") : afterRaw;
+    const after = c.value.slice(trigger.end);
+    const needsSpace = after.length === 0 || !/^\s/.test(after);
+    const insert = `#${item.snippet.handle}${needsSpace ? " " : ""}`;
+    c.addSnippet(item.snippet);
     c.setValue(`${before}${insert}${after}`);
     setTrigger(null);
     setActiveIndex(0);
@@ -225,8 +211,6 @@ export function AiInputBar() {
             const re = new RegExp(`(^|\\s)#${snip.handle}\\b ?`);
             c.setValue((v) => v.replace(re, (_m, lead: string) => lead));
           }}
-          commands={c.pickedCommands}
-          onRemoveCommand={(name) => c.removeCommand(name)}
         />
 
         <Popover open={pickerOpen}>
@@ -279,7 +263,7 @@ export function AiInputBar() {
                     c.submit();
                   }
                 }}
-                placeholder="Ask Terax anything   -   # for snippets and commands, @ for files"
+                placeholder="Ask Terax anything   -   # for snippets, @ for files"
                 rows={1}
                 className={cn(
                   "max-h-40 flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none",
@@ -319,49 +303,16 @@ function ChipsRow({
   onRemoveFile,
   snippets,
   onRemoveSnippet,
-  commands,
-  onRemoveCommand,
 }: {
   files: FileAttachment[];
   onRemoveFile: (id: string) => void;
   snippets: Snippet[];
   onRemoveSnippet: (id: string) => void;
-  commands: { name: string; label: string; icon: typeof HashtagIcon }[];
-  onRemoveCommand: (name: string) => void;
 }) {
-  if (files.length === 0 && snippets.length === 0 && commands.length === 0)
-    return null;
+  if (files.length === 0 && snippets.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1">
       <AnimatePresence initial={false}>
-        {commands.map((cmd) => (
-          <motion.div
-            key={`cmd-${cmd.name}`}
-            layout
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.92 }}
-            transition={{ duration: 0.12 }}
-            className="group flex items-center gap-1 rounded-md border border-border/60 bg-card px-1.5 py-0.5 text-[11px]"
-            title={cmd.label}
-          >
-            <HugeiconsIcon
-              icon={cmd.icon}
-              size={11}
-              strokeWidth={1.75}
-              className="text-muted-foreground"
-            />
-            <span className="font-medium">#{cmd.name}</span>
-            <button
-              type="button"
-              onClick={() => onRemoveCommand(cmd.name)}
-              className="ml-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-              aria-label="Remove command"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} size={10} strokeWidth={2} />
-            </button>
-          </motion.div>
-        ))}
         {snippets.map((s) => (
           <motion.div
             key={`snip-${s.id}`}

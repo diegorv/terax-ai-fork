@@ -5,7 +5,6 @@ import {
   checkReadableCanonical,
   checkWritableCanonical,
 } from "../lib/security";
-import { newQueuedEditId, usePlanStore } from "../store/planStore";
 import { resolvePath, type ToolContext } from "./context";
 
 const READ_BYTE_CAP = 25 * 1024;
@@ -147,30 +146,6 @@ export function buildFsTools(ctx: ToolContext) {
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
 
-        if (usePlanStore.getState().active) {
-          let original = "";
-          let isNewFile = false;
-          try {
-            const r = await native.readFile(abs);
-            if (r.kind === "text") original = r.content;
-          } catch {
-            isNewFile = true;
-          }
-          usePlanStore.getState().enqueue({
-            id: newQueuedEditId(),
-            kind: "write_file",
-            path: abs,
-            originalContent: original,
-            proposedContent: content,
-            isNewFile,
-          });
-          return {
-            path: abs,
-            queued_for_plan_review: true,
-            ok: true,
-          };
-        }
-
         try {
           await native.writeFile(abs, content);
           ctx.readCache.set(abs, { size: content.length, hash: djb2(content) });
@@ -193,18 +168,6 @@ export function buildFsTools(ctx: ToolContext) {
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
-        if (usePlanStore.getState().active) {
-          usePlanStore.getState().enqueue({
-            id: newQueuedEditId(),
-            kind: "create_directory",
-            path: abs,
-            originalContent: "",
-            proposedContent: "",
-            isNewFile: true,
-            description: "Create directory",
-          });
-          return { path: abs, queued_for_plan_review: true, ok: true };
-        }
         try {
           await native.createDir(abs);
           return { path: abs, ok: true };

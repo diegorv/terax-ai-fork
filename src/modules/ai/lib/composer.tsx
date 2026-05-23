@@ -7,7 +7,6 @@ import {
   useState,
 } from "react";
 import { expandSnippetTokens, type Snippet } from "../lib/snippets";
-import { tryRunSlashCommand, type SlashCommandMeta } from "./slashCommands";
 import { getOrCreateChat, useChatStore } from "../store/chatStore";
 import { useSnippetsStore } from "../store/snippetsStore";
 import { currentWorkspaceEnv } from "@/modules/workspace";
@@ -44,9 +43,6 @@ type ComposerCtx = {
   pickedSnippets: Snippet[];
   addSnippet: (s: Snippet) => void;
   removeSnippet: (id: string) => void;
-  pickedCommands: SlashCommandMeta[];
-  addCommand: (c: SlashCommandMeta) => void;
-  removeCommand: (name: string) => void;
   isBusy: boolean;
   submit: () => void;
   stop: () => void;
@@ -74,7 +70,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
   const [value, setValue] = useState("");
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [pickedSnippets, setPickedSnippets] = useState<Snippet[]>([]);
-  const [pickedCommands, setPickedCommands] = useState<SlashCommandMeta[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const focusSignal = useChatStore((s) => s.focusSignal);
@@ -161,13 +156,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
   const removeSnippet = (id: string) =>
     setPickedSnippets((prev) => prev.filter((s) => s.id !== id));
 
-  const addCommand = (cmd: SlashCommandMeta) =>
-    setPickedCommands((prev) =>
-      prev.some((p) => p.name === cmd.name) ? prev : [...prev, cmd],
-    );
-  const removeCommand = (name: string) =>
-    setPickedCommands((prev) => prev.filter((c) => c.name !== name));
-
   const attachFileByPath = async (path: string) => {
     try {
       type ReadResult =
@@ -207,36 +195,7 @@ export function AiComposerProvider({ children }: ProviderProps) {
   const submit = () => {
     if (isBusy) return;
     const trimmed = value.trim();
-    if (
-      !trimmed &&
-      files.length === 0 &&
-      pickedSnippets.length === 0 &&
-      pickedCommands.length === 0
-    )
-      return;
-
-    // Slash-command interception. `/plan` toggles plan mode; `/init` rewrites
-    // the prompt to the TERAX.md scan template before sending.
-    let effectiveText = trimmed;
-    let commandMarker: string | null = null;
-    let commandSource = trimmed;
-    if (pickedCommands.length > 0 && !trimmed.startsWith("/") && !trimmed.startsWith("#")) {
-      commandSource = `#${pickedCommands[0].name} ${trimmed}`.trim();
-    }
-    if (commandSource.startsWith("/") || commandSource.startsWith("#")) {
-      const outcome = tryRunSlashCommand(commandSource);
-      if (outcome.kind === "handled") {
-        setValue("");
-        if (outcome.toast) console.info(outcome.toast);
-        return;
-      }
-      if (outcome.kind === "send-prompt") {
-        effectiveText = outcome.prompt;
-        if (outcome.commandName) {
-          commandMarker = `<terax-command name="${outcome.commandName}" />`;
-        }
-      }
-    }
+    if (!trimmed && files.length === 0 && pickedSnippets.length === 0) return;
 
     const parts: MessagePart[] = [];
     const fileBlocks = files
@@ -252,7 +211,7 @@ export function AiComposerProvider({ children }: ProviderProps) {
           `<selection source="${f.source ?? "terminal"}">\n${f.text ?? ""}\n</selection>`,
       );
     const { body: bodyAfterTokens, blocks: snippetBlocks } = expandSnippetTokens(
-      effectiveText,
+      trimmed,
       useSnippetsStore.getState().snippets,
     );
     const seenHandles = new Set<string>();
@@ -271,7 +230,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
       allSnippetBlocks.push(block);
     }
     const composed = [
-      commandMarker ?? "",
       allSnippetBlocks.join("\n\n"),
       selectionBlocks.join("\n\n"),
       fileBlocks.join("\n\n"),
@@ -298,12 +256,11 @@ export function AiComposerProvider({ children }: ProviderProps) {
       typeof chat.sendMessage
     >[0]);
     const store = useChatStore.getState();
-    store.patchAgentMeta({ hitStepCap: false, compactionNotice: null });
+    store.patchAgentMeta({ hitStepCap: false });
     if (!store.mini.open) store.openMini();
     setValue("");
     setFiles([]);
     setPickedSnippets([]);
-    setPickedCommands([]);
     // Re-focus immediately after submit so the user can type a follow-up
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
@@ -317,8 +274,7 @@ export function AiComposerProvider({ children }: ProviderProps) {
     !isBusy &&
     (value.trim().length > 0 ||
       files.length > 0 ||
-      pickedSnippets.length > 0 ||
-      pickedCommands.length > 0);
+      pickedSnippets.length > 0);
 
   const ctx: ComposerCtx = {
     textareaRef,
@@ -331,9 +287,6 @@ export function AiComposerProvider({ children }: ProviderProps) {
     pickedSnippets,
     addSnippet,
     removeSnippet,
-    pickedCommands,
-    addCommand,
-    removeCommand,
     isBusy,
     submit,
     stop,

@@ -30,7 +30,6 @@ import {
   HashtagIcon,
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
-import { SLASH_COMMANDS, TERAX_CMD_RE } from "../lib/slashCommands";
 import { Spinner } from "@/components/ui/spinner";
 import { useChatStore, sendMessage } from "../store/chatStore";
 import type {
@@ -42,33 +41,6 @@ import type {
 } from "ai";
 import { memo, useCallback, useMemo } from "react";
 import { AiToolApproval } from "./AiToolApproval";
-
-function CommandSnippet({ name }: { name: string }) {
-  const meta = SLASH_COMMANDS[name];
-  if (!meta) {
-    return (
-      <div className="inline-flex items-center gap-1.5 rounded-md border border-border/50 bg-muted/40 px-2 py-1 font-mono text-[11px]">
-        /{name}
-      </div>
-    );
-  }
-  return (
-    <div className="inline-flex max-w-full items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1">
-      <HugeiconsIcon
-        icon={meta.icon}
-        size={12}
-        strokeWidth={1.75}
-        className="shrink-0 text-foreground"
-      />
-      <span className="font-mono text-[11px] text-foreground">
-        {meta.invocation}
-      </span>
-      <span className="truncate text-[11px] text-muted-foreground">
-        {meta.label}
-      </span>
-    </div>
-  );
-}
 
 type AnyToolPart = ToolUIPart | DynamicToolUIPart;
 
@@ -194,7 +166,6 @@ export function AiChatView({
       : null;
   const step = useChatStore((s) => s.agentMeta.step);
   const hitStepCap = useChatStore((s) => s.agentMeta.hitStepCap);
-  const compactionNotice = useChatStore((s) => s.agentMeta.compactionNotice);
   const patchAgentMeta = useChatStore((s) => s.patchAgentMeta);
   const showContinue =
     !isBusy && hitStepCap && lastMessage?.role === "assistant";
@@ -228,12 +199,6 @@ export function AiChatView({
             streaming={m.id === streamingMessageId}
           />
         ))}
-        {compactionNotice && (
-          <CompactionNotice
-            droppedCount={compactionNotice.droppedCount}
-            onDismiss={() => patchAgentMeta({ compactionNotice: null })}
-          />
-        )}
         {showSpinner && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Spinner />
@@ -270,31 +235,6 @@ export function AiChatView({
     </Conversation>
   );
 }
-
-const CompactionNotice = memo(function CompactionNotice({
-  droppedCount,
-  onDismiss,
-}: {
-  droppedCount: number;
-  onDismiss: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-      <span className="size-1.5 shrink-0 rounded-full bg-amber-500/80" />
-      <span className="flex-1 truncate">
-        Context compacted — {droppedCount} older tool result
-        {droppedCount === 1 ? "" : "s"} elided to save tokens.
-      </span>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="text-[10.5px] underline opacity-70 hover:opacity-100"
-      >
-        Dismiss
-      </button>
-    </div>
-  );
-});
 
 const ContinueRow = memo(function ContinueRow({
   onContinue,
@@ -341,15 +281,11 @@ const RenderedMessage = memo(function RenderedMessage({
       .map((p) => p.text)
       .join("\n");
 
-    const cmdMatch = rawText.match(TERAX_CMD_RE);
-    const commandName = cmdMatch?.[1] ?? null;
-    const withoutCmd = cmdMatch ? rawText.slice(cmdMatch[0].length) : rawText;
-    const stripped = stripUserContextBlocks(withoutCmd);
+    const stripped = stripUserContextBlocks(rawText);
 
     return (
       <Message from="user">
         <MessageContent>
-          {commandName ? <CommandSnippet name={commandName} /> : null}
           {stripped.chips.length > 0 ? (
             <ContextChips chips={stripped.chips} />
           ) : null}

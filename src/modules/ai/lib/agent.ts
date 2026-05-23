@@ -10,7 +10,6 @@ import {
 import {
   DEFAULT_MODEL_ID,
   getModel,
-  getModelContextLimit,
   MAX_AGENT_STEPS,
   OLLAMA_DEFAULT_BASE_URL,
   providerNeedsKey,
@@ -19,7 +18,6 @@ import {
   type ProviderId,
 } from "../config";
 import { buildTools, type ToolContext } from "../tools/tools";
-import { compactModelMessagesDetailed } from "./compact";
 import type { ProviderKeys } from "./keyring";
 import { createProxyFetch } from "./proxyFetch";
 
@@ -126,9 +124,6 @@ export function buildConfiguredLanguageModel(
   return buildLanguageModel(m.provider, keys, resolvedId);
 }
 
-const PLAN_MODE_PROMPT = `## PLAN MODE — ACTIVE
-Mutating tools (write_file, edit, multi_edit, create_directory) will queue their changes for the user to review as a single diff. Do NOT execute bash_run or bash_background while plan mode is active — restrict yourself to reads (read_file, grep, glob, list_directory) and the queued mutations. After queueing the full set of edits, stop and return a brief summary; do not continue acting until the user has accepted/rejected.`;
-
 function buildStableSystem(
   modelId: ModelId,
   persona: { name: string; instructions: string } | null,
@@ -196,10 +191,8 @@ export type RunAgentOptions = {
   toolContext: ToolContext;
   onStep?: (step: string | null) => void;
   onUsage?: (delta: AgentUsageDelta) => void;
-  onCompact?: (info: { droppedCount: number }) => void;
   onFinishMeta?: (info: { hitStepCap: boolean; finishReason: string }) => void;
   ollamaModelId?: string;
-  planMode?: boolean;
   projectMemory?: string | null;
   uiMessages: UIMessage[];
   abortSignal?: AbortSignal;
@@ -225,20 +218,9 @@ export async function runAgentStream(opts: RunAgentOptions) {
     reasoning: "all",
     emptyMessages: "remove",
   });
-  const compact = compactModelMessagesDetailed(
-    prunedHistory,
-    getModelContextLimit(getModel(modelId).id),
-  );
-  const compactedHistory = compact.messages;
-  if (compact.compacted) {
-    opts.onCompact?.({ droppedCount: compact.droppedCount });
-  }
 
   const messages: ModelMessage[] = [{ role: "system", content: stableSystem }];
-  if (opts.planMode) {
-    messages.push({ role: "system", content: PLAN_MODE_PROMPT });
-  }
-  messages.push(...compactedHistory);
+  messages.push(...prunedHistory);
 
   const finalMessages = applyCacheBreakpoints(messages, provider);
 
