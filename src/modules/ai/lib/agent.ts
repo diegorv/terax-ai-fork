@@ -41,7 +41,6 @@ const TOOL_LABELS: Record<string, (input: Record<string, unknown>) => string> =
     bash_kill: () => `Stopping background process`,
     suggest_command: (i) =>
       `Suggesting ${ellipsize(String(i.command ?? ""), 60)}`,
-    run_subagent: (i) => `Spawning ${String(i.type ?? "subagent")} subagent`,
   };
 
 function shortPath(p: unknown): string {
@@ -126,14 +125,10 @@ export function buildConfiguredLanguageModel(
 
 function buildStableSystem(
   modelId: ModelId,
-  persona: { name: string; instructions: string } | null,
   customInstructions: string | undefined,
   projectMemory: string | null,
 ): string {
   const base = selectSystemPrompt(getModel(modelId).id);
-  const personaBlock = persona?.instructions.trim()
-    ? `\n\n## ACTIVE AGENT — ${persona.name}\n${persona.instructions.trim()}`
-    : "";
   const customBlock = customInstructions?.trim()
     ? `\n\n## USER CUSTOM INSTRUCTIONS — follow unless they conflict with safety rules above\n${customInstructions.trim()}`
     : "";
@@ -141,7 +136,7 @@ function buildStableSystem(
     projectMemory && projectMemory.trim().length > 0
       ? `\n\n## PROJECT — TERAX.md\n${projectMemory.trim()}`
       : "";
-  return `${base}${memoryBlock}${personaBlock}${customBlock}`;
+  return `${base}${memoryBlock}${customBlock}`;
 }
 
 // OpenAI / Gemini / DeepSeek apply prefix caching automatically; only
@@ -187,7 +182,6 @@ export type RunAgentOptions = {
   keys: ProviderKeys;
   modelId?: ModelId;
   customInstructions?: string;
-  agentPersona?: { name: string; instructions: string } | null;
   toolContext: ToolContext;
   onStep?: (step: string | null) => void;
   onUsage?: (delta: AgentUsageDelta) => void;
@@ -207,7 +201,6 @@ export async function runAgentStream(opts: RunAgentOptions) {
 
   const stableSystem = buildStableSystem(
     modelId,
-    opts.agentPersona ?? null,
     opts.customInstructions,
     opts.projectMemory ?? null,
   );

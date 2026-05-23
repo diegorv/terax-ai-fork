@@ -31,9 +31,7 @@ import { motion } from "motion/react";
 import { useEffect, useMemo } from "react";
 import { estimateCost, getModel, getModelContextLimit } from "../config";
 import type { SessionMeta } from "../lib/sessions";
-import { useAgentsStore } from "../store/agentsStore";
 import { getOrCreateChat, useChatStore } from "../store/chatStore";
-import { AgentSwitcher } from "./AgentSwitcher";
 import { AiChatView } from "./AiChat";
 
 const SUGGESTIONS = [
@@ -193,13 +191,9 @@ function Header({
   onExpand: () => void;
   messages?: UIMessage[];
 }) {
-  const customAgents = useAgentsStore((s) => s.customAgents);
-  void customAgents;
-
   return (
     <div className="relative flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
       <div className="flex min-w-0 items-center gap-1.5">
-        <AgentSwitcher isMiniWindow />
         {messages !== undefined ? (
           <ContextIndicator messages={messages} />
         ) : null}

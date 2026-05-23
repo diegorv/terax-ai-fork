@@ -2,7 +2,6 @@ import { buildEditTools } from "./edit";
 import { buildFsTools } from "./fs";
 import { buildSearchTools } from "./search";
 import { buildShellTools } from "./shell";
-import { buildSubagentTools } from "./subagent";
 import { buildTerminalTools } from "./terminal";
 
 export { resolvePath, type ToolContext } from "./context";
@@ -32,7 +31,6 @@ export function buildTools(ctx: import("./context").ToolContext) {
     ...buildEditTools(ctx),
     ...buildSearchTools(ctx),
     ...buildShellTools(ctx),
-    ...buildSubagentTools(ctx),
     ...buildTerminalTools(ctx),
   } as const;
 }

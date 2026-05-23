@@ -16,7 +16,6 @@ import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
 import type { Snippet } from "../lib/snippets";
 import { useChatStore } from "../store/chatStore";
 import { useSnippetsStore } from "../store/snippetsStore";
-import { AgentSwitcher } from "./AgentSwitcher";
 import { FilePickerContent } from "./FilePicker";
 import { SnippetPickerContent, type PickerItem } from "./SnippetPicker";
 
@@ -270,7 +269,6 @@ export function AiInputBar() {
                   "placeholder:text-muted-foreground/60",
                 )}
               />
-              <AgentSwitcher />
             </div>
           </PopoverAnchor>
           {fileTrigger ? (

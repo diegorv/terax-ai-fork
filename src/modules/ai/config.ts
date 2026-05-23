@@ -226,7 +226,6 @@ Every turn carries a short <env> block (prepended to the latest user message): w
 - Read: read_file, list_directory, grep, glob
 - Mutate (approval required): edit, multi_edit, write_file, create_directory, bash_run, bash_background
 - Background process IO: bash_logs, bash_list, bash_kill
-- Delegation: run_subagent
 - Side-channel: suggest_command, open_preview
 
 # Tool budget

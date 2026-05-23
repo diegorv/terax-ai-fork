@@ -17,7 +17,6 @@ import {
   FolderAddIcon,
   FolderOpenIcon,
   GlobalSearchIcon,
-  RobotIcon,
   SparklesIcon,
   TerminalIcon,
   ToolsIcon,
@@ -47,7 +46,6 @@ const TOOL_META: Record<string, { label: string; icon: typeof File01Icon }> = {
   glob: { label: "Glob", icon: Folder01Icon },
   suggest_command: { label: "Suggest", icon: SparklesIcon },
   open_preview: { label: "Preview", icon: EyeIcon },
-  run_subagent: { label: "Subagent", icon: RobotIcon },
 };
 
 const STATUS_DOT: Record<ToolPart["state"], string> = {
@@ -98,8 +96,6 @@ function deriveSummary(toolName: string, input: unknown): string | null {
       return str("intent") ?? str("description");
     case "open_preview":
       return str("path") ?? str("url");
-    case "run_subagent":
-      return str("agent") ?? str("task");
     default:
       return null;
   }
@@ -122,7 +118,6 @@ const HEAVY_CONTENT_TOOLS = new Set([
   "write_file",
   "edit",
   "multi_edit",
-  "run_subagent",
 ]);
 
 const ToolImpl = ({
