@@ -44,7 +44,7 @@ import {
   type ShortcutHandlers,
   type ShortcutId,
 } from "@/modules/shortcuts";
-import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
+import { SidebarTopToggle, type SidebarViewId } from "@/modules/sidebar";
 import {
   SourceControlPanel,
   useSourceControl,
@@ -93,10 +93,13 @@ function dirname(path: string | null): string | null {
   return normalized.slice(0, idx);
 }
 
-const SIDEBAR_DEFAULT_WIDTH = 260;
+const SIDEBAR_DEFAULT_WIDTHS: Record<SidebarViewId, number> = {
+  explorer: 260,
+  "source-control": 520,
+};
 const SIDEBAR_MIN_WIDTH = 220;
-const SIDEBAR_MAX_WIDTH = 480;
-const SIDEBAR_WIDTH_STORAGE_KEY = "terax.sidebar.width";
+const SIDEBAR_MAX_WIDTH = 900;
+const SIDEBAR_WIDTH_STORAGE_KEY_PREFIX = "terax.sidebar.width";
 const SIDEBAR_VIEW_STORAGE_KEY = "terax.sidebar.view";
 
 function clampSidebarWidth(width: number): number {
@@ -106,15 +109,20 @@ function clampSidebarWidth(width: number): number {
   );
 }
 
-function readSidebarWidth(): number {
+function sidebarWidthKey(view: SidebarViewId): string {
+  const suffix = view === "source-control" ? "source-control" : "files";
+  return `${SIDEBAR_WIDTH_STORAGE_KEY_PREFIX}.${suffix}`;
+}
+
+function readSidebarWidth(view: SidebarViewId): number {
   try {
-    const stored = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    const stored = window.localStorage.getItem(sidebarWidthKey(view));
     const parsed = stored ? Number.parseInt(stored, 10) : NaN;
     return Number.isFinite(parsed)
       ? clampSidebarWidth(parsed)
-      : SIDEBAR_DEFAULT_WIDTH;
+      : SIDEBAR_DEFAULT_WIDTHS[view];
   } catch {
-    return SIDEBAR_DEFAULT_WIDTH;
+    return SIDEBAR_DEFAULT_WIDTHS[view];
   }
 }
 
@@ -180,16 +188,30 @@ export default function App() {
   const explorerReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
-  const sidebarWidthRef = useRef(readSidebarWidth());
+  const sidebarWidthsRef = useRef<Record<SidebarViewId, number>>({
+    explorer: readSidebarWidth("explorer"),
+    "source-control": readSidebarWidth("source-control"),
+  });
   const sidebarWidthWriteTimerRef = useRef(0);
-  const [sidebarView, setSidebarViewState] = useState<SidebarViewId>(readSidebarView);
+  const [sidebarView, setSidebarViewState] =
+    useState<SidebarViewId>(readSidebarView);
+  const sidebarViewRef = useRef(sidebarView);
+  sidebarViewRef.current = sidebarView;
   const persistSidebarView = useCallback((view: SidebarViewId) => {
-    setSidebarViewState(view);
-    try {
-      window.localStorage.setItem(SIDEBAR_VIEW_STORAGE_KEY, view);
-    } catch {
-      // storage may fail in private mode
-    }
+    setSidebarViewState((current) => {
+      if (current === view) return current;
+      const panel = sidebarRef.current;
+      const collapsed = panel ? panel.getSize().asPercentage <= 0 : false;
+      if (panel && !collapsed) {
+        panel.resize(`${sidebarWidthsRef.current[view]}px`);
+      }
+      try {
+        window.localStorage.setItem(SIDEBAR_VIEW_STORAGE_KEY, view);
+      } catch {
+        // storage may fail in private mode
+      }
+      return view;
+    });
   }, []);
   const toggleSidebar = useCallback(() => {
     const p = sidebarRef.current;
@@ -201,8 +223,9 @@ export default function App() {
     (view: SidebarViewId) => {
       const panel = sidebarRef.current;
       const collapsed = panel ? panel.getSize().asPercentage <= 0 : false;
+      const targetWidth = sidebarWidthsRef.current[view];
       if (collapsed) {
-        if (panel) panel.resize(`${sidebarWidthRef.current}px`);
+        if (panel) panel.resize(`${targetWidth}px`);
         if (view !== sidebarView) persistSidebarView(view);
         return;
       }
@@ -215,14 +238,15 @@ export default function App() {
     [persistSidebarView, sidebarView],
   );
   const persistSidebarWidth = useCallback((next: number) => {
-    sidebarWidthRef.current = next;
+    const view = sidebarViewRef.current;
+    sidebarWidthsRef.current[view] = next;
     if (sidebarWidthWriteTimerRef.current) {
       window.clearTimeout(sidebarWidthWriteTimerRef.current);
     }
     sidebarWidthWriteTimerRef.current = window.setTimeout(() => {
       sidebarWidthWriteTimerRef.current = 0;
       try {
-        window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(next));
+        window.localStorage.setItem(sidebarWidthKey(view), String(next));
       } catch {
         // ignore
       }
@@ -241,7 +265,8 @@ export default function App() {
     const panel = sidebarRef.current;
     const collapsed = panel ? panel.getSize().asPercentage <= 0 : false;
     if (sidebarView !== "explorer" || collapsed) {
-      if (panel && collapsed) panel.resize(`${sidebarWidthRef.current}px`);
+      if (panel && collapsed)
+        panel.resize(`${sidebarWidthsRef.current.explorer}px`);
       if (sidebarView !== "explorer") persistSidebarView("explorer");
       const active = document.activeElement;
       explorerReturnFocusRef.current =
@@ -1006,7 +1031,7 @@ export default function App() {
               <ResizablePanel
                 id="sidebar"
                 panelRef={sidebarRef}
-                defaultSize={`${sidebarWidthRef.current}px`}
+                defaultSize={`${sidebarWidthsRef.current[sidebarView]}px`}
                 minSize={`${SIDEBAR_MIN_WIDTH}px`}
                 maxSize={`${SIDEBAR_MAX_WIDTH}px`}
                 collapsible
@@ -1016,6 +1041,11 @@ export default function App() {
                 }}
               >
                 <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
+                  <SidebarTopToggle
+                    activeView={sidebarView}
+                    onSelectView={persistSidebarView}
+                    changedCount={sourceControl.changedCount}
+                  />
                   <div className="min-h-0 flex-1">
                     {sidebarView === "explorer" ? (
                       <FileExplorer
@@ -1035,11 +1065,6 @@ export default function App() {
                       />
                     )}
                   </div>
-                  <SidebarRail
-                    activeView={sidebarView}
-                    onSelectView={persistSidebarView}
-                    changedCount={sourceControl.changedCount}
-                  />
                 </div>
               </ResizablePanel>
               <ResizableHandle withHandle />

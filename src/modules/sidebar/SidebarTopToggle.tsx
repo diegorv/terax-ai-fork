@@ -3,9 +3,9 @@ import { FolderGitTwoIcon, FolderTreeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { SidebarViewId } from "./types";
 
-export const SIDEBAR_RAIL_HEIGHT = 36;
+export const SIDEBAR_TOP_TOGGLE_HEIGHT = 36;
 
-type RailItem = {
+type ToggleItem = {
   id: SidebarViewId;
   label: string;
   icon: Parameters<typeof HugeiconsIcon>[0]["icon"];
@@ -18,8 +18,12 @@ type Props = {
   changedCount: number;
 };
 
-export function SidebarRail({ activeView, onSelectView, changedCount }: Props) {
-  const items: RailItem[] = [
+export function SidebarTopToggle({
+  activeView,
+  onSelectView,
+  changedCount,
+}: Props) {
+  const items: ToggleItem[] = [
     { id: "explorer", label: "Files", icon: FolderTreeIcon },
     {
       id: "source-control",
@@ -31,8 +35,10 @@ export function SidebarRail({ activeView, onSelectView, changedCount }: Props) {
 
   return (
     <div
-      style={{ height: SIDEBAR_RAIL_HEIGHT }}
-      className="flex shrink-0 items-stretch gap-1 border-t border-border/60 bg-card/85 px-1.5 py-1 backdrop-blur"
+      role="tablist"
+      aria-label="Sidebar view"
+      style={{ height: SIDEBAR_TOP_TOGGLE_HEIGHT }}
+      className="flex shrink-0 items-stretch gap-1 border-b border-border/60 bg-card/85 px-1.5 py-1 backdrop-blur"
     >
       {items.map((item) => {
         const isActive = item.id === activeView;
@@ -41,8 +47,9 @@ export function SidebarRail({ activeView, onSelectView, changedCount }: Props) {
           <button
             key={item.id}
             type="button"
+            role="tab"
+            aria-selected={isActive}
             aria-label={item.label}
-            aria-pressed={isActive}
             onClick={() => onSelectView(item.id)}
             className={cn(
               "group relative flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md text-[11px] font-medium outline-none transition-colors duration-150",
