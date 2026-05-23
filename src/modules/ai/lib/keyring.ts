@@ -3,7 +3,7 @@ import {
   getProvider,
   KEYRING_SERVICE,
   PROVIDERS,
-  providerSupportsKey,
+  providerNeedsKey,
   type ProviderId,
 } from "../config";
 
@@ -12,21 +12,11 @@ export type ProviderKeys = Record<ProviderId, string | null>;
 export const EMPTY_PROVIDER_KEYS: ProviderKeys = {
   openai: null,
   anthropic: null,
-  google: null,
-  xai: null,
-  cerebras: null,
-  groq: null,
-  deepseek: null,
-  mistral: null,
-  openrouter: null,
-  "openai-compatible": null,
-  lmstudio: null,
-  mlx: null,
   ollama: null,
 };
 
 export async function getKey(provider: ProviderId): Promise<string | null> {
-  if (!providerSupportsKey(provider)) return null;
+  if (!providerNeedsKey(provider)) return null;
   try {
     const v = await invoke<string | null>("secrets_get", {
       service: KEYRING_SERVICE,
@@ -39,7 +29,7 @@ export async function getKey(provider: ProviderId): Promise<string | null> {
 }
 
 export async function setKey(provider: ProviderId, key: string): Promise<void> {
-  if (!providerSupportsKey(provider)) {
+  if (!providerNeedsKey(provider)) {
     throw new Error(`${provider} does not use an API key`);
   }
   const trimmed = key.trim();
@@ -52,7 +42,7 @@ export async function setKey(provider: ProviderId, key: string): Promise<void> {
 }
 
 export async function clearKey(provider: ProviderId): Promise<void> {
-  if (!providerSupportsKey(provider)) return;
+  if (!providerNeedsKey(provider)) return;
   try {
     await invoke("secrets_delete", {
       service: KEYRING_SERVICE,
@@ -65,7 +55,7 @@ export async function clearKey(provider: ProviderId): Promise<void> {
 
 export async function getAllKeys(): Promise<ProviderKeys> {
   const out = { ...EMPTY_PROVIDER_KEYS };
-  const need = PROVIDERS.filter((p) => providerSupportsKey(p.id));
+  const need = PROVIDERS.filter((p) => providerNeedsKey(p.id));
   try {
     const results = await invoke<(string | null)[]>("secrets_get_all", {
       service: KEYRING_SERVICE,
@@ -86,5 +76,5 @@ export async function getAllKeys(): Promise<ProviderKeys> {
 }
 
 export function hasAnyKey(keys: ProviderKeys): boolean {
-  return PROVIDERS.some((p) => providerSupportsKey(p.id) && !!keys[p.id]);
+  return PROVIDERS.some((p) => providerNeedsKey(p.id) && !!keys[p.id]);
 }

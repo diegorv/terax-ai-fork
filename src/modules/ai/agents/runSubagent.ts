@@ -15,7 +15,6 @@ type Args = {
   keys: ProviderKeys;
   modelId: ModelId;
   toolContext: ToolContext;
-  lmstudioBaseURL?: string;
   onStep?: (label: string) => void;
 };
 
@@ -31,7 +30,6 @@ export async function runSubagent({
   keys,
   modelId,
   toolContext,
-  lmstudioBaseURL,
   onStep,
 }: Args): Promise<RunResult> {
   const def = SUBAGENTS[type];
@@ -50,7 +48,6 @@ export async function runSubagent({
     getModel(modelId).provider,
     keys,
     getModel(modelId).id,
-    { lmstudioBaseURL },
   );
 
   const start = Date.now();

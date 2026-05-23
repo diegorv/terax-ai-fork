@@ -13,26 +13,14 @@ import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import {
   Add01Icon,
   AiBookIcon,
-  AppleIcon,
   ArrowDown01Icon,
   ArrowUpIcon,
-  BrainIcon,
   ChatGptIcon,
   ClaudeIcon,
   Clock01Icon,
-  CoinsDollarIcon,
-  ComputerIcon,
-  CpuIcon,
-  DeepseekIcon,
   FavouriteIcon,
-  FlashIcon,
-  GlobeIcon,
-  GoogleGeminiIcon,
-  Grok02Icon,
-  MistralIcon,
   Message01Icon,
   Mic01Icon,
-  PlugIcon,
   ServerStack01Icon,
   Search01Icon,
   Settings01Icon,
@@ -48,7 +36,6 @@ import {
   MODELS,
   providerNeedsKey,
   PROVIDERS,
-  type ModelCapabilities,
   type ModelId,
   type ModelInfo,
   type ProviderId,
@@ -61,16 +48,6 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 const PROVIDER_ICON = {
   openai: ChatGptIcon,
   anthropic: ClaudeIcon,
-  google: GoogleGeminiIcon,
-  xai: Grok02Icon,
-  cerebras: CpuIcon,
-  groq: FlashIcon,
-  deepseek: DeepseekIcon,
-  mistral: MistralIcon,
-  openrouter: GlobeIcon,
-  "openai-compatible": PlugIcon,
-  lmstudio: ComputerIcon,
-  mlx: AppleIcon,
   ollama: ServerStack01Icon,
 } as const satisfies Record<ProviderId, typeof ChatGptIcon>;
 
@@ -255,8 +232,7 @@ function ModelDropdown() {
           m.label.toLowerCase().includes(q) ||
           m.hint.toLowerCase().includes(q) ||
           m.description.toLowerCase().includes(q) ||
-          m.provider.includes(q) ||
-          (m.tags?.some((t) => t.includes(q)) ?? false),
+          m.provider.includes(q),
       );
     }
     return pool;
@@ -582,8 +558,6 @@ function ModelRow({
         </span>
       </div>
 
-      <CapabilityBars caps={model.capabilities} />
-
       {selected ? (
         <HugeiconsIcon
           icon={Tick01Icon}
@@ -593,55 +567,6 @@ function ModelRow({
         />
       ) : null}
     </DropdownMenuItem>
-  );
-}
-
-function CapabilityBars({ caps }: { caps: ModelCapabilities }) {
-  return (
-    <div className="ml-auto flex items-center gap-1.5">
-      <CapBar icon={BrainIcon} value={caps.intelligence} label="Intelligence" />
-      <CapBar icon={FlashIcon} value={caps.speed} label="Speed" />
-      <CapBar
-        icon={CoinsDollarIcon}
-        value={caps.cost}
-        label="Affordability"
-      />
-    </div>
-  );
-}
-
-function CapBar({
-  icon,
-  value,
-  label,
-}: {
-  icon: typeof AiBookIcon;
-  value: number;
-  label: string;
-}) {
-  return (
-    <span
-      className="flex items-center gap-0.5"
-      title={`${label}: ${value}/5`}
-    >
-      <HugeiconsIcon
-        icon={icon}
-        size={10}
-        strokeWidth={1.75}
-        className="text-muted-foreground/60"
-      />
-      <span className="flex items-center gap-px">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <span
-            key={i}
-            className={cn(
-              "h-2 w-[2px] rounded-full",
-              i <= value ? "bg-foreground/70" : "bg-foreground/15",
-            )}
-          />
-        ))}
-      </span>
-    </span>
   );
 }
 

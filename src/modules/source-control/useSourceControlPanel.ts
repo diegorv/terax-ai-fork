@@ -372,15 +372,7 @@ export function useSourceControlPanel(
     const model = getModel(state.selectedModelId);
     return !providerNeedsKey(model.provider) || !!state.apiKeys[model.provider];
   });
-  const lmstudioModelId = usePreferencesStore((state) => state.lmstudioModelId);
-  const mlxModelId = usePreferencesStore((state) => state.mlxModelId);
   const ollamaModelId = usePreferencesStore((state) => state.ollamaModelId);
-  const openaiCompatibleBaseURL = usePreferencesStore(
-    (state) => state.openaiCompatibleBaseURL,
-  );
-  const openaiCompatibleModelId = usePreferencesStore(
-    (state) => state.openaiCompatibleModelId,
-  );
   const [panelState, setPanelState] = useState<PanelState>("closed");
   const [repo, setRepo] = useState<GitRepoInfo | null>(null);
   const [status, setStatus] = useState<GitStatusSnapshot | null>(null);
@@ -469,29 +461,13 @@ export function useSourceControlPanel(
     if (!hasApiKeyForSelected) {
       return "Connect an AI provider to generate commit messages";
     }
-    if (selectedModel.id === "lmstudio-local" && !lmstudioModelId.trim()) {
-      return "Connect an AI provider to generate commit messages";
-    }
-    if (selectedModel.id === "mlx-local" && !mlxModelId.trim()) {
-      return "Connect an AI provider to generate commit messages";
-    }
     if (selectedModel.id === "ollama-local" && !ollamaModelId.trim()) {
-      return "Connect an AI provider to generate commit messages";
-    }
-    if (
-      selectedModel.id === "openai-compatible-custom" &&
-      (!openaiCompatibleBaseURL.trim() || !openaiCompatibleModelId.trim())
-    ) {
       return "Connect an AI provider to generate commit messages";
     }
     return null;
   }, [
     hasApiKeyForSelected,
-    lmstudioModelId,
-    mlxModelId,
     ollamaModelId,
-    openaiCompatibleBaseURL,
-    openaiCompatibleModelId,
     selectedModel,
     stagedEntries.length,
   ]);
@@ -862,20 +838,10 @@ export function useSourceControlPanel(
         ]);
       const { text: diffText, truncated } = truncateDiff(diff.diffText);
       const chatState = useChatStore.getState();
-      const prefs = usePreferencesStore.getState();
       const model = await buildConfiguredLanguageModel(
         selectedModelId,
         chatState.apiKeys,
-        {
-          lmstudioBaseURL: prefs.lmstudioBaseURL,
-          lmstudioModelId,
-          mlxBaseURL: prefs.mlxBaseURL,
-          mlxModelId,
-          ollamaBaseURL: prefs.ollamaBaseURL,
-          ollamaModelId,
-          openaiCompatibleBaseURL,
-          openaiCompatibleModelId,
-        },
+        { ollamaModelId },
       );
       const result = await generateText({
         model,
@@ -910,11 +876,7 @@ export function useSourceControlPanel(
   }, [
     aiUnavailableReason,
     aiBusy,
-    lmstudioModelId,
-    mlxModelId,
     ollamaModelId,
-    openaiCompatibleBaseURL,
-    openaiCompatibleModelId,
     repo,
     selectedModelId,
     stagedEntries,

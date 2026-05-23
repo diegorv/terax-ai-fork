@@ -377,24 +377,8 @@ export default function App() {
   const setSelectedModelId = useChatStore((s) => s.setSelectedModelId);
   const setLive = useChatStore((s) => s.setLive);
   const respondToApproval = useChatStore((s) => s.respondToApproval);
-  const lmstudioModelId = usePreferencesStore((s) => s.lmstudioModelId);
-  const lmstudioBaseURL = usePreferencesStore((s) => s.lmstudioBaseURL);
-  const mlxModelId = usePreferencesStore((s) => s.mlxModelId);
-  const mlxBaseURL = usePreferencesStore((s) => s.mlxBaseURL);
   const ollamaModelId = usePreferencesStore((s) => s.ollamaModelId);
-  const ollamaBaseURL = usePreferencesStore((s) => s.ollamaBaseURL);
-  const openaiCompatibleModelId = usePreferencesStore(
-    (s) => s.openaiCompatibleModelId,
-  );
-  const openaiCompatibleBaseURL = usePreferencesStore(
-    (s) => s.openaiCompatibleBaseURL,
-  );
-  const hasLocalModel =
-    (lmstudioBaseURL.trim().length > 0 && lmstudioModelId.trim().length > 0) ||
-    (mlxBaseURL.trim().length > 0 && mlxModelId.trim().length > 0) ||
-    (ollamaBaseURL.trim().length > 0 && ollamaModelId.trim().length > 0) ||
-    (openaiCompatibleBaseURL.trim().length > 0 &&
-      openaiCompatibleModelId.trim().length > 0);
+  const hasLocalModel = ollamaModelId.trim().length > 0;
   const hasComposer = hasAnyKey(apiKeys) || hasLocalModel;
 
   const [keysLoaded, setKeysLoaded] = useState(false);
