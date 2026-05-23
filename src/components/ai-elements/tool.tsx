@@ -8,7 +8,6 @@ import {
 import { cn } from "@/lib/utils";
 import {
   ArrowRight01Icon,
-  CheckListIcon,
   Edit02Icon,
   EyeIcon,
   File01Icon,
@@ -49,7 +48,6 @@ const TOOL_META: Record<string, { label: string; icon: typeof File01Icon }> = {
   suggest_command: { label: "Suggest", icon: SparklesIcon },
   open_preview: { label: "Preview", icon: EyeIcon },
   run_subagent: { label: "Subagent", icon: RobotIcon },
-  todo_write: { label: "Todos", icon: CheckListIcon },
 };
 
 const STATUS_DOT: Record<ToolPart["state"], string> = {
@@ -102,12 +100,6 @@ function deriveSummary(toolName: string, input: unknown): string | null {
       return str("path") ?? str("url");
     case "run_subagent":
       return str("agent") ?? str("task");
-    case "todo_write": {
-      const items = Array.isArray(i.todos) ? i.todos : null;
-      return items
-        ? `${items.length} item${items.length === 1 ? "" : "s"}`
-        : null;
-    }
     default:
       return null;
   }
@@ -131,7 +123,6 @@ const HEAVY_CONTENT_TOOLS = new Set([
   "edit",
   "multi_edit",
   "run_subagent",
-  "todo_write",
 ]);
 
 const ToolImpl = ({

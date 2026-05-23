@@ -43,8 +43,6 @@ const TOOL_LABELS: Record<string, (input: Record<string, unknown>) => string> =
     bash_kill: () => `Stopping background process`,
     suggest_command: (i) =>
       `Suggesting ${ellipsize(String(i.command ?? ""), 60)}`,
-    todo_write: (i) =>
-      `Updating plan (${Array.isArray(i.todos) ? i.todos.length : 0} items)`,
     run_subagent: (i) => `Spawning ${String(i.type ?? "subagent")} subagent`,
   };
 

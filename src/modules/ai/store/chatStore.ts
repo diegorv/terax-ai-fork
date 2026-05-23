@@ -15,7 +15,6 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import { BUILTIN_AGENTS } from "../lib/agents";
 import { useAgentsStore } from "./agentsStore";
 import { usePlanStore } from "./planStore";
-import { useTodosStore } from "./todoStore";
 import type { AgentUsage } from "../lib/agent";
 import { EMPTY_PROVIDER_KEYS, type ProviderKeys } from "../lib/keyring";
 import {
@@ -212,10 +211,6 @@ function makeChat(sessionId: string): Chat<UIMessage> {
     getCwd: () => useChatStore.getState().live.getCwd(),
     getWorkspaceRoot: () =>
       useChatStore.getState().live.getWorkspaceRoot(),
-    getTerminalContext: () =>
-      useChatStore.getState().live.getTerminalContext(),
-    isActiveTerminalPrivate: () =>
-      useChatStore.getState().live.isActiveTerminalPrivate(),
     injectIntoActivePty: (text) =>
       useChatStore.getState().live.injectIntoActivePty(text),
     openPreview: (url) => useChatStore.getState().live.openPreview(url),
@@ -440,7 +435,6 @@ export const useChatStore = create<StoreState>((set, get) => ({
       pendingPersist.delete(id);
     }
     void deleteSessionData(id);
-    void useTodosStore.getState().clearSession(id);
 
     if (remaining.length === 0) {
       const fresh: SessionMeta = {

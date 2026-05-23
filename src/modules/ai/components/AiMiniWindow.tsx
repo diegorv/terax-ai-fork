@@ -37,7 +37,6 @@ import { usePlanStore } from "../store/planStore";
 import { AgentSwitcher } from "./AgentSwitcher";
 import { AiChatView } from "./AiChat";
 import { PlanDiffReview } from "./PlanDiffReview";
-import { TodoStrip } from "./TodoStrip";
 
 const SUGGESTIONS = [
   {
@@ -161,7 +160,6 @@ function Body({
         )}
       </div>
 
-      <TodoStrip sessionId={sessionId} />
     </>
   );
 }
