@@ -8,12 +8,9 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
   Download01Icon,
   FolderCloudIcon,
   FolderGitTwoIcon,
-  GitBranchIcon,
   Refresh01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -26,6 +23,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { BranchPicker } from "./BranchPicker";
 import { ChangesPane } from "./ChangesPane";
 import { HistoryPane } from "./HistoryPane";
 import { SOURCE_CONTROL_TOOLTIP_CLASS } from "./lib/uiHelpers";
@@ -110,11 +108,6 @@ export const SourceControlSurface = memo(function SourceControlSurface({
     [scm.repo?.repoRoot],
   );
 
-  const branchLabel = useMemo(() => {
-    if (!scm.status) return "—";
-    return scm.status.isDetached ? "detached" : scm.status.branch;
-  }, [scm.status]);
-
   const fetchedLabel = useMemo(
     () => relativeFetched(sourceControl.lastFetchedAt),
     [sourceControl.lastFetchedAt],
@@ -180,44 +173,14 @@ export const SourceControlSurface = memo(function SourceControlSurface({
             caption="Current repository"
             label={repoLabel}
           />
-          <Segment
-            icon={
-              <HugeiconsIcon
-                icon={GitBranchIcon}
-                size={13}
-                strokeWidth={1.85}
-                className="text-muted-foreground"
-              />
-            }
-            caption="Current branch"
-            label={branchLabel}
-            trailing={
-              scm.status &&
-              (scm.status.ahead > 0 || scm.status.behind > 0) ? (
-                <span className="ml-1 inline-flex shrink-0 items-center gap-0.5 text-[9.5px] font-semibold tabular-nums text-muted-foreground">
-                  {scm.status.ahead > 0 ? (
-                    <span className="inline-flex items-center gap-0.5">
-                      <HugeiconsIcon
-                        icon={ArrowUp01Icon}
-                        size={9}
-                        strokeWidth={2.2}
-                      />
-                      {scm.status.ahead}
-                    </span>
-                  ) : null}
-                  {scm.status.behind > 0 ? (
-                    <span className="inline-flex items-center gap-0.5">
-                      <HugeiconsIcon
-                        icon={ArrowDown01Icon}
-                        size={9}
-                        strokeWidth={2.2}
-                      />
-                      {scm.status.behind}
-                    </span>
-                  ) : null}
-                </span>
-              ) : null
-            }
+          <BranchPicker
+            repoRoot={scm.repo?.repoRoot ?? null}
+            currentBranch={scm.status?.branch ?? null}
+            isDetached={scm.status?.isDetached ?? false}
+            ahead={scm.status?.ahead ?? 0}
+            behind={scm.status?.behind ?? 0}
+            busy={!!scm.actionBusy || !!sourceControl.busyAction}
+            onCheckedOut={() => sourceControl.refresh({ remote: "never" })}
           />
           <Segment
             icon={
