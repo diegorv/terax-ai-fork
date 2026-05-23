@@ -7,7 +7,6 @@ export {
   type EditorTab,
   type PreviewTab,
   type GitDiffTab,
-  type GitHistoryTab,
   type GitCommitFileDiffTab,
   type TabPatch,
 } from "./lib/useTabs";

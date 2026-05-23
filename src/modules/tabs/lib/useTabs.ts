@@ -58,13 +58,6 @@ export type GitDiffTab = {
   originalPath: string | null;
 };
 
-export type GitHistoryTab = {
-  id: number;
-  kind: "git-history";
-  title: string;
-  repoRoot: string;
-};
-
 export type GitCommitFileDiffTab = {
   id: number;
   kind: "git-commit-file";
@@ -82,7 +75,6 @@ export type Tab =
   | EditorTab
   | PreviewTab
   | GitDiffTab
-  | GitHistoryTab
   | GitCommitFileDiffTab;
 
 export type TabPatch = Partial<{
@@ -316,42 +308,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           mode: input.mode,
           originalPath,
         } satisfies GitDiffTab,
-      ];
-      tabsRef.current = nextTabs;
-      setTabs(nextTabs);
-      setActiveId(id);
-      return id;
-    },
-    [],
-  );
-
-  const openCommitHistoryTab = useCallback(
-    (input: { repoRoot: string; branch?: string | null }) => {
-      const curr = tabsRef.current;
-      const existing = curr.find(
-        (t) => t.kind === "git-history" && t.repoRoot === input.repoRoot,
-      );
-      const title = input.branch
-        ? `History · ${input.branch}`
-        : "Git History";
-      if (existing) {
-        const nextTabs = curr.map((t) =>
-          t.id === existing.id ? { ...t, title } : t,
-        );
-        tabsRef.current = nextTabs;
-        setTabs(nextTabs);
-        setActiveId(existing.id);
-        return existing.id;
-      }
-      const id = nextIdRef.current++;
-      const nextTabs = [
-        ...curr,
-        {
-          id,
-          kind: "git-history",
-          title,
-          repoRoot: input.repoRoot,
-        } satisfies GitHistoryTab,
       ];
       tabsRef.current = nextTabs;
       setTabs(nextTabs);
@@ -658,7 +614,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     pinTab,
     newPreviewTab,
     openGitDiffTab,
-    openCommitHistoryTab,
     openCommitFileDiffTab,
     closeTab,
     updateTab,

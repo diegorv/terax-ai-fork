@@ -22,10 +22,6 @@ import {
   NewEditorDialog,
   type EditorPaneHandle,
 } from "@/modules/editor";
-import {
-  GitHistoryStack,
-  type GitHistorySearchHandle,
-} from "@/modules/git-history";
 import { getLaunchDir } from "@/lib/launchDir";
 import { useZoom } from "@/lib/useZoom";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
@@ -147,7 +143,6 @@ export default function App() {
     pinTab,
     newPreviewTab,
     openGitDiffTab,
-    openCommitHistoryTab,
     openCommitFileDiffTab,
     closeTab,
     updateTab,
@@ -181,8 +176,6 @@ export default function App() {
   const previewRefs = useRef<Map<number, PreviewPaneHandle>>(new Map());
   const [activeEditorHandle, setActiveEditorHandle] =
     useState<EditorPaneHandle | null>(null);
-  const [gitHistoryHandle, setGitHistoryHandle] =
-    useState<GitHistorySearchHandle | null>(null);
   const { zoomIn, zoomOut, zoomReset } = useZoom();
   const explorerRef = useRef<FileExplorerHandle>(null);
   const explorerReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -386,7 +379,6 @@ export default function App() {
   const isPreviewTab = activeTab?.kind === "preview";
   const isGitDiffTab =
     activeTab?.kind === "git-diff" || activeTab?.kind === "git-commit-file";
-  const isGitHistoryTab = activeTab?.kind === "git-history";
 
   useEffect(() => {
     type FileWrittenPayload = { path: string; source?: string };
@@ -686,16 +678,12 @@ export default function App() {
     if (activeTab?.kind === "editor") return dirname(activeTab.path);
     if (activeTab?.kind === "git-diff") return activeTab.repoRoot;
     if (activeTab?.kind === "git-commit-file") return activeTab.repoRoot;
-    if (activeTab?.kind === "git-history") return activeTab.repoRoot;
     return explorerRoot ?? workspaceFallbackPath;
   })();
   const hasOpenGitTab = useMemo(
     () =>
       tabs.some(
-        (t) =>
-          t.kind === "git-diff" ||
-          t.kind === "git-history" ||
-          t.kind === "git-commit-file",
+        (t) => t.kind === "git-diff" || t.kind === "git-commit-file",
       ),
     [tabs],
   );
@@ -713,31 +701,6 @@ export default function App() {
   const toggleSourceControl = useCallback(() => {
     cycleSidebarView("source-control");
   }, [cycleSidebarView]);
-
-  const openGitGraphFromContext = useCallback(async () => {
-    const known = sourceControl.hasRepo ? sourceControl.repo : null;
-    if (known) {
-      openCommitHistoryTab({
-        repoRoot: known.repoRoot,
-        branch: sourceControl.status?.branch ?? null,
-      });
-      return;
-    }
-    if (!sourceControlContextPath) return;
-    try {
-      const repo = await native.gitResolveRepo(sourceControlContextPath);
-      if (!repo) return;
-      openCommitHistoryTab({ repoRoot: repo.repoRoot, branch: repo.branch });
-    } catch {
-      /* noop */
-    }
-  }, [
-    openCommitHistoryTab,
-    sourceControl.hasRepo,
-    sourceControl.repo,
-    sourceControl.status?.branch,
-    sourceControlContextPath,
-  ]);
 
   const openPreviewTab = useCallback(
     (url: string) => {
@@ -903,21 +866,13 @@ export default function App() {
         handle: activeEditorHandle,
         focus: () => activeEditorHandle.focus(),
       };
-    if (isGitHistoryTab && gitHistoryHandle)
-      return {
-        kind: "git-history",
-        handle: gitHistoryHandle,
-        focus: () => {},
-      };
     return null;
   }, [
     isTerminalTab,
     isEditorTab,
-    isGitHistoryTab,
     activeLeafId,
     activeSearchAddon,
     activeEditorHandle,
-    gitHistoryHandle,
   ]);
 
   const activeCwd = activeTerminalLeafCwd;
@@ -979,20 +934,6 @@ export default function App() {
       >
         <GitDiffStack tabs={tabs} activeId={activeId} />
       </div>
-      <div
-        className={cn(
-          "absolute inset-0",
-          !isGitHistoryTab && "invisible pointer-events-none",
-        )}
-        aria-hidden={!isGitHistoryTab}
-      >
-        <GitHistoryStack
-          tabs={tabs}
-          activeId={activeId}
-          onOpenCommitFile={openCommitFileDiffTab}
-          onSearchHandle={setGitHistoryHandle}
-        />
-      </div>
     </div>
   );
 
@@ -1008,7 +949,6 @@ export default function App() {
             onNewPrivate={openNewPrivateTab}
             onNewPreview={() => openPreviewTab("")}
             onNewEditor={() => setNewEditorOpen(true)}
-            onNewGitGraph={openGitGraphFromContext}
             onClose={handleClose}
             onPin={pinTab}
             onToggleSidebar={toggleSidebar}

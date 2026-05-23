@@ -18,7 +18,7 @@ import {
   hostLabel,
   parseRemoteWebUrl,
   type RemoteWebInfo,
-} from "@/modules/git-history/lib/remoteWebUrl";
+} from "./lib/remoteWebUrl";
 import {
   Copy01Icon,
   LinkSquare02Icon,

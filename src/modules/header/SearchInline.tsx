@@ -28,11 +28,6 @@ const TERM_DECORATIONS = {
 export type SearchTarget =
   | { kind: "terminal"; addon: SearchAddon; focus: () => void }
   | { kind: "editor"; handle: EditorPaneHandle; focus: () => void }
-  | {
-      kind: "git-history";
-      handle: { setQuery: (q: string) => void; clearQuery: () => void };
-      focus: () => void;
-    }
   | null;
 
 export type SearchInlineHandle = { focus: () => void };
@@ -69,7 +64,7 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
       return tokens.join(KEY_SEP);
     }, [userShortcuts]);
 
-    const baseLabel = target?.kind === "git-history" ? "Git search" : "Search";
+    const baseLabel = "Search";
 
     const placeholder = useMemo(() => {
       return shortcutText ? `${baseLabel} (${shortcutText})` : baseLabel;
