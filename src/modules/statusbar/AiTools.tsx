@@ -10,7 +10,6 @@ import { fmtShortcut, MOD_KEY } from "@/lib/platform";
 import {
   ArrowDown01Icon,
   ArrowUp01Icon,
-  Mic01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnimatePresence, motion } from "motion/react";
@@ -43,9 +42,6 @@ export function AiTools({ aiOpen, canSubmit, onOpenAi, onSubmit }: Props) {
           className="flex items-center gap-0.5"
         >
           <ModelSelector />
-          <ToolButton title="Voice input">
-            <HugeiconsIcon icon={Mic01Icon} size={14} strokeWidth={1.75} />
-          </ToolButton>
           <Button
             size="sm"
             disabled={!canSubmit}
@@ -74,26 +70,6 @@ export function AiTools({ aiOpen, canSubmit, onOpenAi, onSubmit }: Props) {
         </motion.button>
       )}
     </AnimatePresence>
-  );
-}
-
-function ToolButton({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      title={title}
-      className="size-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-    >
-      {children}
-    </Button>
   );
 }
 

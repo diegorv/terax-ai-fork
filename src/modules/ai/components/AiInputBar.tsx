@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor } from "@/components/ui/popover";
-import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import {
   Cancel01Icon,
@@ -207,12 +206,6 @@ export function AiInputBar() {
     if (it) onPickItem(it);
   };
 
-  const voiceLabel = c.voice.recording
-    ? "Listening…"
-    : c.voice.transcribing
-      ? "Transcribing…"
-      : null;
-
   return (
     <div className="shrink-0 border-t border-border/60 bg-card/40 px-3 py-2">
       <div
@@ -316,25 +309,6 @@ export function AiInputBar() {
           )}
         </Popover>
 
-        <AnimatePresence initial={false}>
-          {voiceLabel && (
-            <motion.div
-              key={voiceLabel}
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.12 }}
-              className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground"
-            >
-              {c.voice.recording ? (
-                <span className="size-1.5 animate-pulse rounded-full bg-destructive" />
-              ) : (
-                <Spinner className="size-3" />
-              )}
-              <span className="truncate">{voiceLabel}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
