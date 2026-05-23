@@ -74,12 +74,21 @@ type Props = {
     originalPath: string | null;
     title?: string;
   }) => void;
+  onOpenCommitFile: (input: {
+    repoRoot: string;
+    sha: string;
+    shortSha: string;
+    subject: string;
+    path: string;
+    originalPath: string | null;
+  }) => void;
 };
 
 export const SourceControlSurface = memo(function SourceControlSurface({
   open,
   sourceControl,
   onOpenDiff,
+  onOpenCommitFile,
 }: Props) {
   const scm = useSourceControlPanel(open, sourceControl, onOpenDiff);
   const [activeTab, setActiveTab] = useState<SurfaceTab>(readActiveTab);
@@ -279,16 +288,32 @@ export const SourceControlSurface = memo(function SourceControlSurface({
             }
           />
         ) : scm.panelState === "ready" && scm.status ? (
-          activeTab === "changes" ? (
-            <ChangesPane
-              scm={scm}
-              repoLabel={repoLabel}
-              pushHint={pushHint}
-              pushDisabledReason={pushDisabledReason}
-            />
-          ) : (
-            <HistoryPane repoRoot={scm.repo?.repoRoot ?? null} />
-          )
+          <>
+            <div
+              className={cn(
+                "flex min-h-0 flex-1 flex-col",
+                activeTab !== "changes" && "hidden",
+              )}
+            >
+              <ChangesPane
+                scm={scm}
+                repoLabel={repoLabel}
+                pushHint={pushHint}
+                pushDisabledReason={pushDisabledReason}
+              />
+            </div>
+            <div
+              className={cn(
+                "flex min-h-0 flex-1 flex-col",
+                activeTab !== "history" && "hidden",
+              )}
+            >
+              <HistoryPane
+                repoRoot={scm.repo?.repoRoot ?? null}
+                onOpenCommitFile={onOpenCommitFile}
+              />
+            </div>
+          </>
         ) : null}
       </aside>
     </TooltipProvider>

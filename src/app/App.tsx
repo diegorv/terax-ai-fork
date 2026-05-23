@@ -1061,6 +1061,7 @@ export default function App() {
                         open
                         sourceControl={sourceControl}
                         onOpenDiff={openGitDiffTab}
+                        onOpenCommitFile={openCommitFileDiffTab}
                       />
                     )}
                   </div>
