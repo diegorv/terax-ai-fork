@@ -6,7 +6,6 @@ export {
   type TerminalTab,
   type EditorTab,
   type PreviewTab,
-  type MarkdownTab,
   type AiDiffTab,
   type GitDiffTab,
   type GitHistoryTab,
