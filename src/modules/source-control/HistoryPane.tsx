@@ -37,6 +37,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { relativeFromSecs, statusTone } from "./lib/format";
 import { basename, dirname } from "./lib/uiHelpers";
 
 const PAGE_SIZE = 30;
@@ -75,25 +76,6 @@ function normalizeError(error: unknown): string {
   return "Unknown error";
 }
 
-function relativeDate(secs: number): string {
-  if (!secs) return "";
-  const diff = Math.max(0, Date.now() - secs * 1000);
-  const sec = Math.round(diff / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 48) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  if (day < 14) return `${day}d ago`;
-  const d = new Date(secs * 1000);
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 function absoluteTime(secs: number): string {
   if (!secs) return "";
   return new Date(secs * 1000).toLocaleString(undefined, {
@@ -103,22 +85,6 @@ function absoluteTime(secs: number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function statusTone(code: string): string {
-  switch (code.toUpperCase()) {
-    case "A":
-      return "text-emerald-600 dark:text-emerald-400";
-    case "M":
-      return "text-amber-600 dark:text-amber-300";
-    case "D":
-      return "text-rose-600 dark:text-rose-400";
-    case "R":
-    case "C":
-      return "text-sky-600 dark:text-sky-300";
-    default:
-      return "text-muted-foreground";
-  }
 }
 
 function readHistoryRatio(): number {
@@ -535,7 +501,7 @@ const CommitRow = memo(function CommitRow({
   query,
   onClick,
 }: CommitRowProps) {
-  const date = relativeDate(commit.timestampSecs);
+  const date = relativeFromSecs(commit.timestampSecs);
   return (
     <button
       type="button"

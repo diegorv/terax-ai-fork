@@ -26,6 +26,7 @@ import {
 import { BranchPicker } from "./BranchPicker";
 import { ChangesPane } from "./ChangesPane";
 import { HistoryPane } from "./HistoryPane";
+import { relativeFromMs, repoBasename } from "./lib/format";
 import { SOURCE_CONTROL_TOOLTIP_CLASS } from "./lib/uiHelpers";
 import type { SourceControlSummary } from "./useSourceControl";
 import { useSourceControlPanel } from "./useSourceControlPanel";
@@ -42,26 +43,6 @@ function readActiveTab(): SurfaceTab {
     /* ignore */
   }
   return "changes";
-}
-
-function repoBasename(repoRoot: string | null | undefined): string {
-  if (!repoRoot) return "No repo";
-  const cleaned = repoRoot.replace(/\\/g, "/").replace(/\/+$/, "");
-  const idx = cleaned.lastIndexOf("/");
-  return idx >= 0 ? cleaned.slice(idx + 1) : cleaned;
-}
-
-function relativeFetched(timestampMs: number | null): string {
-  if (!timestampMs) return "Never";
-  const diff = Math.max(0, Date.now() - timestampMs);
-  const sec = Math.round(diff / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  return `${day}d ago`;
 }
 
 type Props = {
@@ -118,7 +99,7 @@ export const SourceControlSurface = memo(function SourceControlSurface({
   );
 
   const fetchedLabel = useMemo(
-    () => relativeFetched(sourceControl.lastFetchedAt),
+    () => relativeFromMs(sourceControl.lastFetchedAt),
     [sourceControl.lastFetchedAt],
   );
 
