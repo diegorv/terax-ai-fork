@@ -1034,7 +1034,17 @@ fn is_safe_branch_name(name: &str) -> bool {
     if name.is_empty() || name.len() > 255 {
         return false;
     }
-    if name.starts_with('-') || name.contains("..") || name.contains(' ') {
+    if name.starts_with('-')
+        || name.starts_with('/')
+        || name.starts_with('.')
+        || name.ends_with('/')
+        || name.ends_with('.')
+        || name.ends_with(".lock")
+        || name.contains("..")
+        || name.contains("//")
+        || name.contains("@{")
+        || name.contains(' ')
+    {
         return false;
     }
     name.chars().all(|c| {
